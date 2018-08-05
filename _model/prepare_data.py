@@ -38,3 +38,19 @@ def get_dataset(in_path, out_path, length, window, company_name, w2vec):
     print("training dataset: %d, testing data set: %d"%(len(training_set), len(testing_set)))
 
     return data_set, training_set, testing_set, training_label, testing_label
+
+def get_test_data(test_path, w2vec, window):
+    x_test = []
+    y_test = []
+    vocab_set = set(w2vec.wv.vocab)
+
+    with open(test_path, 'r') as f:
+        for l in f:
+            wordsplits = l.strip().split(" ")
+            wordlist = wordsplits[0:window*2]
+            label = [1, 0] if wordsplits[-1] == '1' else [0, 1]
+            veclist = [w2vec[w] if w in vocab_set else np.zero(window*2) for w in wordlist]
+            x_test.append(veclist)
+            y_test.append(label)
+
+    return np.array(x_test), np.array(y_test)

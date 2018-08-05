@@ -85,7 +85,12 @@ class LogisticClassification(object):
         saver = tf.train.Saver()
         with tf.Session() as sess: 
             self.load(sess, saver, path)
-            print(sess.run(self.w))
+            #print(sess.run(self.w))
+            feed_dict = {self.x_input: x_input, self.y_input: y_input}
+            y_output = sess.run(self.y_output, feed_dict=feed_dict)
+            print(y_output)
+            accu = self.accuracy(y_output, y_input)
+            print(accu)
 
 
 
