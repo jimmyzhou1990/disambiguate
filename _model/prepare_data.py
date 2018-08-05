@@ -64,12 +64,12 @@ def get_test_data(test_path, user_dict, w2vec, window):
             sentence = items[1]
             label = items[2]
 
-            wordlist = filter(lambda o: o in vocab_set, list(jieba.cut(items[1])))
+            wordlist = list(filter(lambda o: o in vocab_set, list(jieba.cut(items[1]))))
             if len(wordlist) < 2*window:
                 print("wordlist too short: %d"%len(wordlist))
                 continue
 
-            print(wordlist)
+            #print(wordlist)
 
             pos = find_company(wordlist, short_name)
             if pos < 0:
@@ -91,10 +91,11 @@ def get_test_data(test_path, user_dict, w2vec, window):
                 word_extract_l = enlarge(word_extract_l, window)
                 word_extract_r = enlarge(word_extract_r, window)
 
-            print("left: %s"%word_extract_l)
-            print("right: %s"%word_extract_r)
+            #print("left: %s"%word_extract_l)
+            #print("right: %s"%word_extract_r)
             word_extract = word_extract_l + word_extract_r
-
+            print(word_extract)
+            print("----------------------------------------------")
             veclist = [w2vec[w] for w in word_extract]
             y = [1, 0] if label == "1" else [0, 1]
             x_test.append(veclist)

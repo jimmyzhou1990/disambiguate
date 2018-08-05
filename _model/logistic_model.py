@@ -29,7 +29,7 @@ class LogisticClassification(object):
         x_reshape = tf.reshape(x_trans, [-1, window*2])
         wx = tf.reshape(tf.matmul(x_reshape, wc), [-1, embedding_size])
 
-        activation = tf.matmul(wx, self.w) + self.b
+        activation = tf.matmul(wx, self.w) # + self.b
         self.y_output = tf.nn.softmax(activation, name='softmax')
         self.loss = self.loss_function(self.y_output, self.y_input)
         self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
@@ -85,7 +85,9 @@ class LogisticClassification(object):
         saver = tf.train.Saver()
         with tf.Session() as sess: 
             self.load(sess, saver, path)
-            #print(sess.run(self.w))
+            print("model w and b:")
+            print(sess.run(self.w))
+            print(sess.run(self.b))
             feed_dict = {self.x_input: x_input, self.y_input: y_input}
             y_output = sess.run(self.y_output, feed_dict=feed_dict)
             print(y_output)

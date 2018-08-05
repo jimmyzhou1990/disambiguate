@@ -46,7 +46,7 @@ conf = {
         'out_path'     :      '/home/op/work/survey/data/sentence_sure_train_10_10000.txt',
         'company_name' :      'COMPANY_NAME',
         'model_path'   :      '/home/op/work/survey/model/logistic/',
-        'test_path'    :      '/home/op/work/survey/data/test_logistic_10.txt'
+        'test_path'    :      '/home/op/work/survey/data/test_label.txt'
     }
 
 }
