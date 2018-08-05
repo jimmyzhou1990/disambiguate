@@ -1,5 +1,5 @@
 import numpy as np
-
+import jieba
 
 def get_dataset(in_path, out_path, length, window, company_name, w2vec):
     data_set = []
@@ -39,18 +39,66 @@ def get_dataset(in_path, out_path, length, window, company_name, w2vec):
 
     return data_set, training_set, testing_set, training_label, testing_label
 
-def get_test_data(test_path, w2vec, window):
+def get_test_data(test_path, user_dict, w2vec, window):
     x_test = []
     y_test = []
     vocab_set = set(w2vec.wv.vocab)
+    jieba.load_userdict(user_dict)  # 加载自定义词典
+
+    def find_company(wordlist, short_name):
+        for index, word in enumerate(wordlist):
+            if word == short_name:
+                return index
+        return -1
+
+    def enlarge(wordlist, maxlen):
+        while len(wordlist) < maxlen:
+            wordlist = wordlist*2
+
+        return wordlist[:maxlen]
 
     with open(test_path, 'r') as f:
-        for l in f:
-            wordsplits = l.strip().split(" ")
-            wordlist = wordsplits[0:window*2]
-            label = [1, 0] if wordsplits[-1] == '1' else [0, 1]
-            veclist = [w2vec[w] if w in vocab_set else np.zero(window*2) for w in wordlist]
-            x_test.append(veclist)
-            y_test.append(label)
+        for line in f:
+            items = line.strip().split('\t')
+            short_name = items[0]
+            sentence = items[1]
+            label = items[2]
 
-    return np.array(x_test), np.array(y_test)
+            wordlist = filter(lambda o: o in vocab_set, list(jieba.cut(items[1])))
+            if len(wordlist) < 2*window:
+                print("wordlist too short: %d"%len(wordlist))
+                continue
+
+            print(wordlist)
+
+            pos = find_company(wordlist, short_name)
+            if pos < 0:
+                print("cannot find the keyword: %s"%short_name)
+                continue
+
+            word_extract_l = wordlist[(0 if pos-window<0 else pos-window):pos]
+            word_extract_r = wordlist[pos+1: pos+1+window]
+
+            if len(word_extract_l) == 0 and len(word_extract_r) > 0:
+                word_extract_l = word_extract_r.copy()
+                word_extract_l.reverse()
+            elif len(word_extract_l) > 0 and len(word_extract_r) == 0:
+                word_extract_r = word_extract_l.copy()
+                word_extract_r.reverse()
+            elif len(word_extract_r) == 0 and len(word_extract_l) == 0:
+                continue
+            else:
+                word_extract_l = enlarge(word_extract_l, window)
+                word_extract_r = enlarge(word_extract_r, window)
+
+            print("left: %s"%word_extract_l)
+            print("right: %s"%word_extract_r)
+            word_extract = word_extract_l + word_extract_r
+
+            veclist = [w2vec[w] for w in word_extract]
+            y = [1, 0] if label == "1" else [0, 1]
+            x_test.append(veclist)
+            y_test.append(y)
+
+        return np.array(x_test), np.array(y_test)
+            

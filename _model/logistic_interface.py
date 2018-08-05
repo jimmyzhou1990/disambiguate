@@ -18,6 +18,7 @@ def train_logistic(conf):
 
 def test_logstic(conf):
     x_test, y_test = get_test_data(conf['logistic']['test_path'],
+                                   conf['user_dict'],
                                    gensim.models.Word2Vec.load(conf['w2v_model_path']),
                                    int(conf['logistic']['window']))
 
