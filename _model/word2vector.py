@@ -4,7 +4,7 @@ import gensim
 from gensim.models.word2vec import Word2Vec
 import re
 
-class ModelFactory(object):
+class w2vectorFactory(object):
     def __init__(self, conf):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
         self.corpus_path = conf['corpus_path']

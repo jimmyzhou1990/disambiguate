@@ -85,5 +85,3 @@ class Disambiguate(object):
             print("[%s]---%s"%(case['short_name'], case['sentence']))
             print("similarity with COMPANY_POS: %f, similarity with COMPANY_NEG: %f, diff: %f"%(sum_p, sum_n, sum_p-sum_n))
             print("---------------------------------------------------------------------------------")
-
-    def
