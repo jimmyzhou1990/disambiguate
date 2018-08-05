@@ -4,16 +4,19 @@ import numpy as np
 def get_dataset(in_path, out_path, length, window, company_name, w2vec):
     data_set = []
     f_out = open(out_path, 'w')
-
+    vocab_set = set(w2vec.wv.vocab)
+    print("length: %d, window: %d, name: %s"%(length, window, company_name))
     with open(in_path, 'r') as f_in:
         for l in f_in:
             wordlist = l.strip().split(" ")
-
-            if wordlist != company_name:
+            #print(wordlist)    
+            #print(wordlist[length])
+            if (len(wordlist) < length*2)  or (wordlist[length] != company_name):
+                #print("pass...length: %d, mid: %s"%(len(wordlist), wordlist[length]))
                 continue
-
-            wordlist_l = list(filter(lambda o: o != company_name, wordlist[0:length]))
-            wordlist_r = list(filter(lambda o: o != company_name, wordlist[length+1:]))
+            #print(wordlist)
+            wordlist_l = list(filter(lambda o: o != company_name and o != '\u2002' and o in vocab_set, wordlist[0:length]))
+            wordlist_r = list(filter(lambda o: o != company_name and o != '\u2002' and o in vocab_set, wordlist[length+1:]))
 
             if len(wordlist_l) < window or len(wordlist_r) < window:
                 continue
@@ -26,8 +29,8 @@ def get_dataset(in_path, out_path, length, window, company_name, w2vec):
     f_out.close()
 
     training_set_len = int(len(data_set) * 0.8)
-    training_set = data_set[0:training_set_len]
-    testing_set = data_set[training_set_len:]
+    training_set = np.array(data_set[0:training_set_len])
+    testing_set = np.array(data_set[training_set_len:])
     label = [[1, 0] for _ in data_set]
     training_label = np.array(label[0:training_set_len])
     testing_label = np.array(label[training_set_len:])

@@ -51,8 +51,7 @@ class Disambiguate(object):
         return position_list
 
     def similarity_weight(self, diff):
-
-
+        pass
     def cal_each_similarity(self, case):
         similarity_list = []
         for w in case['word_list']:

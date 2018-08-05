@@ -3,7 +3,7 @@ from _corpus.company_corpus import CorpusFactory
 from _corpus.clean_corpus import CorpusCleaner
 from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
-from _model.logstic_interface import train_logistic
+from _model.logistic_interface import logistic
 
 def load_config(conf):
     with open("/home/op/work/survey/data/company_sure.txt") as f:
@@ -42,8 +42,10 @@ conf = {
         'window'       :       5,
         'length'       :      10,
         'class_num'    :       2,
-        'in_path'      :      '/home/op/work/survey/data/sentence_sure_extract_10_10000.txt',
+        'in_path'      :      '/home/op/work/survey/data/sentence_sure_extract_10.txt',
         'out_path'     :      '/home/op/work/survey/data/sentence_sure_train_10_10000.txt',
+        'company_name' :      'COMPANY_NAME',
+        'model_path'   :      '/home/op/work/survey/model/logistic/'
     }
 
 }
@@ -68,7 +70,7 @@ elif sys.argv[1] == 'clean':
     cleaner = CorpusCleaner(conf)
     cleaner.clean()
 elif sys.argv[1] == 'logistic':
-    train_logistic(conf)
+    logistic(conf, sys.argv[2])
 
 
 
