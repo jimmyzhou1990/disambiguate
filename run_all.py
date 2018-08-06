@@ -29,6 +29,7 @@ conf = {
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
     'embeding_size'    : 100,
     'topn'             : 10,
+    'company_name'     : "COMPANY_NAME",
 
     'clean_config' :
     {

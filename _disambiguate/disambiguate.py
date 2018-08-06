@@ -9,6 +9,7 @@ class Disambiguate(object):
         self.test_corpus_path = conf['test_corpus_path']
         self.COMPANY_NEG = conf['COMPANY_NEG']
         self.COMPANY_POS = conf['COMPANY_POS']
+        self.COMPANY_NAME = conf['company_name']
         self.cases = []
         self.topn = conf['topn']
 
@@ -44,7 +45,7 @@ class Disambiguate(object):
             if w not in self.vocab_set or w == case['short_name']:
                 continue
             else:
-                similarity_list.append((index, self.w2v_model.similarity(w, self.COMPANY_POS)))
+                similarity_list.append((index, w, self.w2v_model.similarity(w, self.COMPANY_NAME)))
         return similarity_list
   
     def cal_similarity(self, case):
@@ -64,7 +65,7 @@ class Disambiguate(object):
         return sum_p/count, sum_n/count
 
     def sort_similarity(self, similarity_list):
-        res = sorted(similarity_list, key=lambda x: (x[1], x[0]), reverse=True)
+        res = sorted(similarity_list, key=lambda x: x[2], reverse=True)
         return res
 
     def find_shortname_position(self, case):
@@ -75,23 +76,23 @@ class Disambiguate(object):
 
     def cal_similarity_with_offset(self, similarity_list, position):
         max_diff = 0
-        for index, simi in similarity_list:
+        for index, _, simi in similarity_list:
             diff = position-index if position >= index else index-position
             max_diff = diff if diff>max_diff else max_diff
 
         similarity_list_offset = []
-        for index, simi in similarity_list:
+        for index, w, simi in similarity_list:
             diff = position - index if position >= index else index - position
             weight = (max_diff-diff+1)/max_diff
-            similarity_list_offset.append((index, weight*simi))
+            similarity_list_offset.append((index, w, weight * simi))
 
         return  similarity_list_offset
 
     def summary_similarity(self, similarity_list_final):
         sum = .0
-        for _, simi in similarity_list_final:
+        for index, _, simi in similarity_list_final:
             sum += simi
-        return sum
+        return sum / len(similarity_list_final)
 
 
     def test(self):
@@ -104,13 +105,15 @@ class Disambiguate(object):
                 print('%s found at %d'%(case['short_name'], position))
             else:
                 print('cannot find keyword: %s'%case['short_name'])
-                continue
+                position = 0
 
             similarity_list = self.cal_each_similarity(case)  # [(index, simi), ...]
             similarity_list_sorted = self.sort_similarity(similarity_list)
-            print(similarity_list_sorted)
+            #print(similarity_list_sorted)
 
             similarity_list_topn = similarity_list_sorted[:self.topn]
+            print('topn similarity:')
+            print(similarity_list_topn)
             similarity_list_final = self.cal_similarity_with_offset(similarity_list_topn, position)
 
             similarity_summary = self.summary_similarity(similarity_list_final)
