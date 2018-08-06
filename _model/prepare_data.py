@@ -1,5 +1,6 @@
 import numpy as np
 import jieba
+import gensim
 
 def get_dataset(in_path, out_path, length, window, company_name, w2vec):
     data_set = []
@@ -102,4 +103,99 @@ def get_test_data(test_path, user_dict, w2vec, window):
             y_test.append(y)
 
         return np.array(x_test), np.array(y_test)
-            
+
+
+def topn_similarity(keyword, wordlist, topn, window, w2vec):
+    topn_simi_list = []
+    topn_offset_list = []
+    topn_list = []
+
+    for index, w in enumerate(wordlist):
+        simi = w2vec.similarity(w, keyword)
+        offset = index-window if index>=window else window-index
+        topn_list.append((offset, simi, w))
+
+    topn_sorted = sorted(topn_list, key=lambda x: x[1], reverse=True)
+    print(topn_sorted)
+
+    for offset, simi, _ in topn_sorted:
+        topn_simi_list.append(simi)
+        topn_offset_list.append(offset)
+
+    return topn_offset_list, topn_simi_list
+
+def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
+    x_set = []
+
+    with open(corpus_path, 'r') as f:
+        for l in f:
+            wordlist = l.strip().split(" ")
+            if (len(wordlist) < window*2)  or (wordlist[window] != keyword):
+                continue
+            #print(wordlist)
+            wordlist_l = list(filter(lambda o: o != keyword and o != '\u2002' and o in vocab_set,
+                                     wordlist[0:window]))
+            wordlist_r = list(filter(lambda o: o != keyword and o != '\u2002' and o in vocab_set,
+                                     wordlist[window+1:]))
+
+            if len(wordlist_l) < topn or len(wordlist_r) < topn:
+                continue
+
+            topn_offset_list, topn_simi_list = topn_similarity(keyword, wordlist_l+wordlist_r,
+                                                               topn, window, w2vec)
+
+            feature = topn_simi_list + topn_offset_list
+            x_set.append(feature)
+
+    return x_set
+
+def get_lr_model_dataset(conf):
+    jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
+    w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path'])
+    vocab_set = set(w2vec.wv.vocab)
+
+    window = conf['lr']['window']
+    topn = conf['lr']['topn']
+    corpus_path = conf['lr']['corpus_path']
+    company_neg = conf['COMPANY_NEG']
+    company_pos = conf['COMPANY_POS']
+
+    x_neg = load_feature_set(corpus_path+'/extract_20_lr_cut.neg',
+                                             window, topn, company_neg, w2vec, vocab_set)
+    y_neg = [0]*len(x_neg)
+
+    x_pos = load_feature_set(corpus_path+'/extract_20_lr_cut.pos',
+                                             window, topn, company_pos, w2vec, vocab_set)
+    y_pos = [1]*len(x_pos)
+
+    x_set = x_neg + x_pos
+    y_set = y_neg + y_pos
+
+    import random
+    randnum = random.randint(0, 100)
+    random.seed(randnum)
+    random.shuffle(x_set)
+    random.seed(randnum)
+    random.shuffle(y_set)
+
+    train_set_len = len(x_set) * 0.8
+    x_train = np.array(x_set[0:train_set_len])
+    y_train = np.array(y_set[0:train_set_len])
+    x_test = np.array(x_set[train_set_len:])
+    y_test = np.array(x_set[train_set_len:])
+
+    print(x_train[0:5])
+    print(y_train[0:5])
+
+    return x_train, y_train, x_test, y_test
+
+
+
+
+
+
+
+
+
+
+

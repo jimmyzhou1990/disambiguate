@@ -2,6 +2,8 @@ import sys
 from poa.pipline import *
 from poa.es import *
 import copy
+import jieba
+import re
 
 class CorpusFactory(object):
     def __init__(self, conf):
@@ -9,6 +11,92 @@ class CorpusFactory(object):
         self.corpus_path = conf['corpus_path']
         self.COMPANY_NEG = conf['COMPANY_NEG']
         self.COMPANY_POS = conf['COMPANY_POS']
+        self.stopword_path = conf['stopwords_path']
+        jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
+
+    def collect_lr_corpus(self, window):
+        f_pos = open("%s/lr/lr.pos"%self.corpus_path, 'w+')
+        f_neg = open("%s/lr/lr.neg"%self.corpus_path, 'w+')
+        fcut_pos = open("%s/lr/lr_cut.pos"%self.corpus_path, 'w+')
+        fcut_neg = open("%s/lr/lr_cut.neg"%self.corpus_path, 'w+')
+        fextract_pos = open("%s/lr/extract_%d_lr_cut.pos"%(self.corpus_path, window), 'w+')
+        fextract_neg = open("%s/lr/extract_%d_lr_cut.neg" % (self.corpus_path, window), 'w+')
+        min_len = 50
+        each = 50
+
+        key_word = ['股票', '股吧', '上市', '股份', '经营', '大盘', '成交金额', '投资', '跌停',
+                    '负债', '发债', '债券', '控股', '公司', '融资', '涨停', '利润']
+
+        stopword_set = set([l.strip() for l in open(self.stopword_path, 'rt')])
+
+        #收集负例语料
+        for company in self.company_list:
+            short_name = company['short_name']
+            #collect neg
+            print("[%s]collect lr_neg corpus..."%short_name)
+            with open("%s/%s/%s_neg.txt" % (self.corpus_path, short_name, short_name), 'r') as f:
+                count = 0
+                for l in f:
+                    items = l.strip().split("\t")
+                    text = items[2]
+
+                    conflag = False
+                    for k in key_word:
+                        if text.find(k) >= 0:
+                            conflag = True
+
+                    if len(text) < min_len or text.find(self.COMPANY_NEG) < 0 or conflag:
+                        continue
+
+                    f_neg.write(short_name+"\t"+text+"\n")
+                    wordlist = [w for w in list(jieba.cut(text)) if w not in stopword_set]
+                    wordlist_sentence = " ".join(wordlist)
+                    fcut_neg.write(wordlist_sentence+"\n")
+
+                    #提取
+                    extract = re.search('([^ ]+ ){%d}%s( [^ ]+){%d}'%(window, self.COMPANY_NEG, window), wordlist_sentence, flags=0)
+                    if extract:
+                        fextract_neg.write(extract.group()+"\n")
+
+                    count += 1
+                    if count > each:  #每个公司收集50句
+                        break
+                print("collect %s lines"%count)
+        f_neg.close()
+        fcut_neg.close()
+        fextract_neg.close()
+
+        #收集正例语料
+        for company in self.company_list:
+            short_name = company['short_name']
+            #collect pos
+            print("[%s]collect lr_pos corpus..."%short_name)
+            with open("%s/%s/%s_pos.txt" % (self.corpus_path, short_name, short_name), 'r') as f:
+                count = 0
+                for l in f:
+                    items = l.strip().split("\t")
+                    text = items[2]
+
+                    if len(text) < min_len or text.find(self.COMPANY_POS) < 0:
+                        continue
+
+                    f_pos.write(short_name+"\t"+text+"\n")
+                    wordlist = [w for w in list(jieba.cut(text)) if w not in stopword_set]
+                    wordlist_sentence = " ".join(wordlist)
+                    fcut_pos.write(wordlist_sentence + "\n")
+
+                    #提取
+                    extract = re.search('([^ ]+ ){%d}%s( [^ ]+){%d}'%(window, self.COMPANY_POS, window), wordlist_sentence, flags=0)
+                    if extract:
+                        fextract_pos.write(extract.group()+"\n")
+
+                    count += 1
+                    if count > each:  #每个公司收集50句
+                        break
+                print("collect %s lines"%count)
+        f_pos.close()
+        fcut_pos.close()
+        fextract_pos.close()
 
     def collect_sure_corpus(self):
         for company in self.company_list:

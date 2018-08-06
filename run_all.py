@@ -4,9 +4,11 @@ from _corpus.clean_corpus import CorpusCleaner
 from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
 from _model.logistic_interface import logistic
+from _model.lr_model import LR_Model
+form _model.prepare_data import get_lr_model_dataset
 
 def load_config(conf):
-    with open("/home/op/work/survey/data/company_sure.txt") as f:
+    with open("/home/op/work/survey/data/company_disambiguate.txt") as f:
         for line in f:
             company = {}
             company['full_name'], company['short_name'] = line.strip().split('\t')[0:2]
@@ -19,7 +21,7 @@ conf = {
         #     'short_name' :  '星星'
         # },
     ],
-    'corpus_path'    : '/home/op/work/survey/corpus/sure/corpus_filter.pos',
+    'corpus_path'    : '/home/op/work/survey/corpus',
     'user_dict'      : '/home/op/work/survey/data/user_dict.txt',
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
     'w2v_model_path'     : '/home/op/work/survey/model/company_pos.model',
@@ -49,6 +51,13 @@ conf = {
         'company_name' :      'COMPANY_NAME',
         'model_path'   :      '/home/op/work/survey/model/logistic/',
         'test_path'    :      '/home/op/work/survey/data/test_label.txt'
+    },
+
+    'lr'        :
+    {
+        'corpus_path'  :   '/home/op/work/survey/corpus/lr',
+        'window'          :   20,
+        'topn'            :   5,
     }
 
 }
@@ -59,7 +68,8 @@ if sys.argv[1] == 'collect':
     print("collecting...")
     fac = CorpusFactory(conf)
     #fac.collect_corpus(sys.argv[2])
-    fac.collect_sure_corpus()
+    fac.collect_lr_corpus(20)
+
 elif sys.argv[1] == 'w2vec':
     print("train model ...")
     fac = w2vectorFactory(conf)
@@ -74,6 +84,13 @@ elif sys.argv[1] == 'clean':
     cleaner.clean()
 elif sys.argv[1] == 'logistic':
     logistic(conf, sys.argv[2])
+elif sys.argv[1] == 'lr':
+    x_train, y_train, x_test, y_test = get_lr_model_dataset(conf)
+    lr = LR_Model()
+    lr.train(x_train, y_train)
+    lr.test(x_test, y_test)
+
+
 
 
 
