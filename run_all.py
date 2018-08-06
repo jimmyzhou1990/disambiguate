@@ -5,6 +5,7 @@ from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
 from _model.logistic_interface import logistic
 from _model.lr_model import LR_Model
+from _model.lr_model import SVM_Model
 from _model.prepare_data import get_lr_model_dataset
 
 def load_config(conf):
@@ -89,6 +90,10 @@ elif sys.argv[1] == 'lr':
     lr = LR_Model()
     lr.train(x_train, y_train)
     lr.test(x_test, y_test)
+
+    svm = SVM_Model()
+    svm.train(x_train, y_train)
+    svm.test(x_test, y_test)
 
 
 
