@@ -84,13 +84,13 @@ class Disambiguate(object):
         for index, w, simi in similarity_list:
             diff = position - index if position >= index else index - position
             weight = (max_diff-diff+1)/max_diff
-            similarity_list_offset.append((index, w, weight * simi))
+            similarity_list_offset.append((index, w, simi, weight, weight * simi))
 
         return  similarity_list_offset
 
     def summary_similarity(self, similarity_list_final):
         sum = .0
-        for index, _, simi in similarity_list_final:
+        for index, _, _, _, simi in similarity_list_final:
             sum += simi
         return sum / len(similarity_list_final)
 
@@ -112,9 +112,12 @@ class Disambiguate(object):
             #print(similarity_list_sorted)
 
             similarity_list_topn = similarity_list_sorted[:self.topn]
-            print('topn similarity:')
-            print(similarity_list_topn)
+            #print('topn similarity:')
+            #print(similarity_list_topn)
             similarity_list_final = self.cal_similarity_with_offset(similarity_list_topn, position)
+
+            print('topn similarity with weight:')
+            print(similarity_list_final)
 
             similarity_summary = self.summary_similarity(similarity_list_final)
 
