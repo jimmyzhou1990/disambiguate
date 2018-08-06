@@ -4,13 +4,13 @@ import jieba
 class Disambiguate(object):
     def __init__(self, conf):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
-        self.w2v_model = gensim.models.Word2Vec.load(conf['model_path'])
+        self.w2v_model = gensim.models.Word2Vec.load(conf['w2v_model_path'])
         self.vocab_set = set(self.w2v_model.wv.vocab)
         self.test_corpus_path = conf['test_corpus_path']
         self.COMPANY_NEG = conf['COMPANY_NEG']
         self.COMPANY_POS = conf['COMPANY_POS']
         self.cases = []
-        self.window = int(conf[''])
+        self.topn = conf['topn']
 
     def find(self, s, m):
         i = 0
@@ -35,30 +35,16 @@ class Disambiguate(object):
                 case['short_name'] = items[0]
                 case['sentence'] = items[1]
                 case['word_list'] = list(jieba.cut(items[1]))
-                case['similarity'] = self.cal_each_similarity(case)
                 #print(case)
                 self.cases.append(case)
 
-    def find_position(self, case):
-        position_list = []
-
-        for index, word in enumerate(case['word_list']):
-            if word == case['short_name']:
-                position_list.append(index)
-        if len(position_list) == 0:
-            print("warning...there is no keyword:[%s] in wordlist:  \n[%s]" % (case['short_name'], case['word_list']))
-            position_list.append(-1)
-        return position_list
-
-    def similarity_weight(self, diff):
-        pass
     def cal_each_similarity(self, case):
         similarity_list = []
-        for w in case['word_list']:
+        for index, w in enumerate(case['word_list']):
             if w not in self.vocab_set or w == case['short_name']:
-                similarity_list = .0
+                continue
             else:
-                similarity_list.append(self.w2v_model.similarity(w, self.COMPANY_POS))
+                similarity_list.append((index, self.w2v_model.similarity(w, self.COMPANY_POS)))
         return similarity_list
   
     def cal_similarity(self, case):
@@ -77,10 +63,58 @@ class Disambiguate(object):
         print("")
         return sum_p/count, sum_n/count
 
+    def sort_similarity(self, similarity_list):
+        res = sorted(similarity_list, key=lambda x: (x[1], x[0]), reverse=True)
+        return res
+
+    def find_shortname_position(self, case):
+        for index, w in enumerate(case['word_list']):
+            if w == case['short_name']:
+                return index
+        return -1
+
+    def cal_similarity_with_offset(self, similarity_list, position):
+        max_diff = 0
+        for index, simi in similarity_list:
+            diff = position-index if position >= index else index-position
+            max_diff = diff if diff>max_diff else max_diff
+
+        similarity_list_offset = []
+        for index, simi in similarity_list:
+            diff = position - index if position >= index else index - position
+            weight = (max_diff-diff+1)/max_diff
+            similarity_list_offset.append((index, weight*simi))
+
+        return  similarity_list_offset
+
+    def summary_similarity(self, similarity_list_final):
+        sum = .0
+        for _, simi in similarity_list_final:
+            sum += simi
+        return sum
+
+
     def test(self):
         self.load_test_corpus()
         for case in self.cases:
-            sum_p, sum_n = self.cal_similarity(case)
+            print(case['word_list'])
+
+            position = self.find_shortname_position(case)
+            if position >= 0:
+                print('%s found at %d'%(case['short_name'], position))
+            else:
+                print('cannot find keyword: %s'%case['short_name'])
+                continue
+
+            similarity_list = self.cal_each_similarity(case)  # [(index, simi), ...]
+            similarity_list_sorted = self.sort_similarity(similarity_list)
+            print(similarity_list_sorted)
+
+            similarity_list_topn = similarity_list_sorted[:self.topn]
+            similarity_list_final = self.cal_similarity_with_offset(similarity_list_topn, position)
+
+            similarity_summary = self.summary_similarity(similarity_list_final)
+
             print("[%s]---%s"%(case['short_name'], case['sentence']))
-            print("similarity with COMPANY_POS: %f, similarity with COMPANY_NEG: %f, diff: %f"%(sum_p, sum_n, sum_p-sum_n))
+            print("similarity with COMPANY_POS: %f"%similarity_summary)
             print("---------------------------------------------------------------------------------")

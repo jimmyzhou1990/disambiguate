@@ -28,6 +28,7 @@ conf = {
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
     'embeding_size'    : 100,
+    'topn'             : 10,
 
     'clean_config' :
     {
