@@ -105,12 +105,14 @@ def get_test_data(test_path, user_dict, w2vec, window):
         return np.array(x_test), np.array(y_test)
 
 
-def topn_similarity(keyword, wordlist, topn, window, w2vec, vocab_set):
+def topn_similarity(keyword, wordlist, topn, window, range, w2vec, vocab_set):
     topn_simi_list = []
     topn_offset_list = []
     topn_list = []
 
     for index, w in enumerate(wordlist):
+        if index<window-range or index > window+range:
+            continue
         simi = w2vec.similarity(w, keyword) if w in vocab_set and w != '\u2002' else 0
         offset = index-window if index>=window else window-index
         topn_list.append((offset, simi, w))
@@ -142,7 +144,7 @@ def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
                 continue
 
             topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist,
-                                                               topn, window, w2vec, vocab_set)
+                                                               topn, window, 15, w2vec, vocab_set)
 
             feature = topn_simi_list + topn_offset_list
             x_set.append(feature)
@@ -154,8 +156,8 @@ def get_lr_model_dataset(conf):
     w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path'])
     vocab_set = set(w2vec.wv.vocab)
 
-    window = conf['lr']['window']
-    topn = conf['lr']['topn']
+    window = int(conf['lr']['window'])
+    topn = int(conf['lr']['topn'])
     corpus_path = conf['lr']['corpus_path']
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
