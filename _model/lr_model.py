@@ -3,7 +3,7 @@ from sklearn.linear_model import LogisticRegression
 class LR_Model(object):
 
     def __init__(self):
-        self.lr = LogisticRegression()
+        self.lr = LogisticRegression(solver='saga')
 
     def train(self, x_train, y_train):
         self.lr.fit(x_train, y_train)

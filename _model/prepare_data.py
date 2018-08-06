@@ -116,9 +116,9 @@ def topn_similarity(keyword, wordlist, topn, window, w2vec):
         topn_list.append((offset, simi, w))
 
     topn_sorted = sorted(topn_list, key=lambda x: x[1], reverse=True)
-    print(topn_sorted)
+    #print(topn_sorted[0:topn])
 
-    for offset, simi, _ in topn_sorted:
+    for offset, simi, _ in topn_sorted[0:topn]:
         topn_simi_list.append(simi)
         topn_offset_list.append(offset)
 
@@ -141,7 +141,7 @@ def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
             if len(wordlist_l) < topn or len(wordlist_r) < topn:
                 continue
 
-            topn_offset_list, topn_simi_list = topn_similarity(keyword, wordlist_l+wordlist_r,
+            topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist_l+wordlist_r,
                                                                topn, window, w2vec)
 
             feature = topn_simi_list + topn_offset_list
@@ -163,10 +163,12 @@ def get_lr_model_dataset(conf):
     x_neg = load_feature_set(corpus_path+'/extract_20_lr_cut.neg',
                                              window, topn, company_neg, w2vec, vocab_set)
     y_neg = [0]*len(x_neg)
+    print("neg sample: %d"%len(x_neg))
 
     x_pos = load_feature_set(corpus_path+'/extract_20_lr_cut.pos',
                                              window, topn, company_pos, w2vec, vocab_set)
     y_pos = [1]*len(x_pos)
+    print("pos sample: %d"%len(x_pos))
 
     x_set = x_neg + x_pos
     y_set = y_neg + y_pos
@@ -178,11 +180,11 @@ def get_lr_model_dataset(conf):
     random.seed(randnum)
     random.shuffle(y_set)
 
-    train_set_len = len(x_set) * 0.8
+    train_set_len = int(len(x_set) * 0.8)
     x_train = np.array(x_set[0:train_set_len])
     y_train = np.array(y_set[0:train_set_len])
     x_test = np.array(x_set[train_set_len:])
-    y_test = np.array(x_set[train_set_len:])
+    y_test = np.array(y_set[train_set_len:])
 
     print(x_train[0:5])
     print(y_train[0:5])
