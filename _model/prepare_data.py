@@ -105,13 +105,13 @@ def get_test_data(test_path, user_dict, w2vec, window):
         return np.array(x_test), np.array(y_test)
 
 
-def topn_similarity(keyword, wordlist, topn, window, w2vec):
+def topn_similarity(keyword, wordlist, topn, window, w2vec, vocab_set):
     topn_simi_list = []
     topn_offset_list = []
     topn_list = []
 
     for index, w in enumerate(wordlist):
-        simi = w2vec.similarity(w, keyword)
+        simi = w2vec.similarity(w, keyword) if w in vocab_set and w != '\u2002' else 0
         offset = index-window if index>=window else window-index
         topn_list.append((offset, simi, w))
 
@@ -141,8 +141,8 @@ def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
             if len(wordlist_l) < topn or len(wordlist_r) < topn:
                 continue
 
-            topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist_l+wordlist_r,
-                                                               topn, window, w2vec)
+            topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist,
+                                                               topn, window, w2vec, vocab_set)
 
             feature = topn_simi_list + topn_offset_list
             x_set.append(feature)

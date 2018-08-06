@@ -56,7 +56,7 @@ conf = {
     'lr'        :
     {
         'corpus_path'  :   '/home/op/work/survey/corpus/lr',
-        'window'          :   20,
+        'window'          :   15,
         'topn'            :   5,
     }
 
