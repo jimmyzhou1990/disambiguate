@@ -104,52 +104,63 @@ def get_test_data(test_path, user_dict, w2vec, window):
 
         return np.array(x_test), np.array(y_test)
 
+def filter_word(word):
+    import re
+    if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
+        return False
+    res = re.search(r'''[0-9]|[a-z]|[A-Z]|月|年|日|中|】|【|前|后|上午|再|原|一个|不断|时间|时|
+    记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|一|以来|称|
+    上海|深圳|广州|重庆|北京|苏州|南京|杭州|武汉|江苏|国际|刚刚|查看''',
+            word, flags=0)
+    if res:
+        return False
+    return True
 
-def topn_similarity(keyword, wordlist, topn, window, range, w2vec, vocab_set):
+def topn_similarity(companyword, keyword_position, wordlist, topn, range, w2vec, vocab_set):
     topn_simi_list = []
     topn_offset_list = []
-    topn_list = []
+    simi_list = []
 
     for index, w in enumerate(wordlist):
-        if index<window-range or index > window+range:
+        if index < keyword_position-range or index > keyword_position+range:
             continue
-        simi = w2vec.similarity(w, keyword) if w in vocab_set and w != '\u2002' else 0
-        offset = index-window if index>=window else window-index
-        topn_list.append((offset, simi, w))
+        simi = w2vec.similarity(w, companyword) if w in vocab_set and filter_word(w) else -1
+        offset = index-keyword_position if index>=keyword_position else keyword_position-index
+        offset = offset/range
+        simi_list.append((simi, offset, w))
 
-    topn_sorted = sorted(topn_list, key=lambda x: x[1], reverse=True)
+    topn_sorted = sorted(simi_list, key=lambda x: x[0], reverse=True)
     #print(topn_sorted[0:topn])
 
     for offset, simi, _ in topn_sorted[0:topn]:
         topn_simi_list.append(simi)
         topn_offset_list.append(offset)
 
-    return topn_offset_list, topn_simi_list
+    return topn_offset_list, topn_simi_list, simi_list, topn_sorted[0:topn]
 
-def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
+def load_feature_set(corpus_path, window, range, topn, keyword, w2vec, vocab_set):
     x_set = []
-
+    x_info = []
     with open(corpus_path, 'r') as f:
         for l in f:
-            wordlist = l.strip().split(" ")
-            if (len(wordlist) < window*2)  or (wordlist[window] != keyword):
-                continue
-            #print(wordlist)
-            wordlist_l = list(filter(lambda o: o != keyword and o != '\u2002' and o in vocab_set,
-                                     wordlist[0:window]))
-            wordlist_r = list(filter(lambda o: o != keyword and o != '\u2002' and o in vocab_set,
-                                     wordlist[window+1:]))
+            items = l.strip().split("\t")
+            wordlist = items[1].split(" ")
+            shortname = items[0]
 
-            if len(wordlist_l) < topn or len(wordlist_r) < topn:
+
+            if len(wordlist) < window or keyword not in wordlist:
                 continue
 
-            topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist,
-                                                               topn, window, 15, w2vec, vocab_set)
+            keyword_position = wordlist.index(keyword)
+
+            topn_offset_list, topn_simi_list, simi_list, top_list = topn_similarity("COMPANY_NAME", keyword_position, wordlist,
+                                                               topn, range, w2vec, vocab_set)
 
             feature = topn_simi_list + topn_offset_list  # [offset/15 for offset in topn_offset_list]
             x_set.append(feature)
+            x_info.append((shortname, "".join(wordlist), simi_list, top_list))
 
-    return x_set
+    return x_set, x_info
 
 def get_lr_model_dataset(conf):
     jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
@@ -157,23 +168,26 @@ def get_lr_model_dataset(conf):
     vocab_set = set(w2vec.wv.vocab)
 
     window = int(conf['lr']['window'])
+    range = int(conf['lr']['range'])
     topn = int(conf['lr']['topn'])
     corpus_path = conf['lr']['corpus_path']
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
 
-    x_neg = load_feature_set(corpus_path+'/extract_20_lr_cut.neg',
-                                             window, topn, company_neg, w2vec, vocab_set)
+
+    x_neg, x_neg_info = load_feature_set(corpus_path+'/extract_%d_lr_cut.neg'%window,
+                                             window, range, topn, company_neg, w2vec, vocab_set)
     y_neg = [0]*len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
-    x_pos = load_feature_set(corpus_path+'/extract_20_lr_cut.pos',
-                                             window, topn, company_pos, w2vec, vocab_set)
+    x_pos, x_pos_info = load_feature_set(corpus_path+'/extract_%d_lr_cut.pos'%window,
+                                             window, range, topn, company_pos, w2vec, vocab_set)
     y_pos = [1]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
 
     x_set = x_neg + x_pos
     y_set = y_neg + y_pos
+    x_info = x_neg_info + x_pos_info
 
     import random
     randnum = random.randint(0, 100)
@@ -181,17 +195,21 @@ def get_lr_model_dataset(conf):
     random.shuffle(x_set)
     random.seed(randnum)
     random.shuffle(y_set)
+    random.seed(randnum)
+    random.shuffle(x_info)
 
     train_set_len = int(len(x_set) * 0.8)
     x_train = np.array(x_set[0:train_set_len])
     y_train = np.array(y_set[0:train_set_len])
     x_test = np.array(x_set[train_set_len:])
     y_test = np.array(y_set[train_set_len:])
+    x_test_info = x_info[train_set_len:]
 
+    print("training set 1-5:")
     print(x_train[0:5])
     print(y_train[0:5])
 
-    return x_train, y_train, x_test, y_test
+    return x_train, y_train, x_test, y_test, x_test_info
 
 
 

@@ -12,20 +12,35 @@ class CorpusFactory(object):
         self.COMPANY_NEG = conf['COMPANY_NEG']
         self.COMPANY_POS = conf['COMPANY_POS']
         self.stopword_path = conf['stopwords_path']
+        self.window = conf['lr']['window']
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
 
-    def collect_lr_corpus(self, window):
-        f_pos = open("%s/lr/lr.pos"%self.corpus_path, 'w+')
-        f_neg = open("%s/lr/lr.neg"%self.corpus_path, 'w+')
+
+    def delete_some_words(self, delwords, srcwords):
+        newwords = [w for w in srcwords if w not in delwords]
+        return newwords
+
+    def collect_lr_corpus(self):
+        #f_pos = open("%s/lr/lr.pos"%self.corpus_path, 'w+')
+        #f_neg = open("%s/lr/lr.neg"%self.corpus_path, 'w+')
         fcut_pos = open("%s/lr/lr_cut.pos"%self.corpus_path, 'w+')
         fcut_neg = open("%s/lr/lr_cut.neg"%self.corpus_path, 'w+')
-        fextract_pos = open("%s/lr/extract_%d_lr_cut.pos"%(self.corpus_path, window), 'w+')
-        fextract_neg = open("%s/lr/extract_%d_lr_cut.neg" % (self.corpus_path, window), 'w+')
+        fextract_pos = open("%s/lr/extract_%d_lr_cut.pos"%(self.corpus_path, self.window), 'w+')
+        fextract_neg = open("%s/lr/extract_%d_lr_cut.neg" % (self.corpus_path, self.window), 'w+')
         min_len = 50
         each = 50
 
         key_word = ['股票', '股吧', '上市', '股份', '经营', '大盘', '成交金额', '投资', '跌停',
-                    '负债', '发债', '债券', '控股', '公司', '融资', '涨停', '利润']
+                    '负债', '发债', '债券', '控股', '公司', '融资', '涨停', '利润', '集团',
+                    '证券', '下跌', '大跌', '收盘', '深股', '港股', '跌了', '跌出', '亏损',
+                    '复牌', '涨跌', '停牌', '复盘', '只股', '成交', '公告', '科技股', '每股',
+                    '股东', '品牌', '枣', '交易所', '买入', '卖出', '柿', '地产', '缩股', '市值',
+                    '加仓', '000022', '000620', '股市', ]
+
+        strange_charactor = ['\u3000', '\u200b', '\u2002', '\u2003', '\u200c', '\u202a', '\u202c',
+                             '\ufeff', '\ue8c3', '\uf8f5', '\ue587', '\ue31c', '\ue193', '\ue033',
+                             '\ue14b', '\ue1a9', '\ue604',
+                             '\xa0', '\x08', '\x07', '\x00', '\xad', '\x0b', ]
 
         stopword_set = set([l.strip() for l in open(self.stopword_path, 'rt')])
 
@@ -38,31 +53,36 @@ class CorpusFactory(object):
                 count = 0
                 for l in f:
                     items = l.strip().split("\t")
+                    title = items[1]
                     text = items[2]
 
                     conflag = False
                     for k in key_word:
-                        if text.find(k) >= 0:
+                        if text.find(k) >= 0 or title.find(k) >= 0:
                             conflag = True
 
                     if len(text) < min_len or text.find(self.COMPANY_NEG) < 0 or conflag:
                         continue
 
-                    f_neg.write(short_name+"\t"+text+"\n")
-                    wordlist = [w for w in list(jieba.cut(text)) if w not in stopword_set]
+                    #f_neg.write('\t'.join(items)+"\n")
+                    #wordlist = [w for w in list(jieba.cut(title+' '+text)) if w not in stopword_set]
+                    wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    wordlist = self.delete_some_words(strange_charactor, wordlist)
+                    #print(wordlist)
                     wordlist_sentence = " ".join(wordlist)
+                    wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  #替换多个空格为1个
                     fcut_neg.write(wordlist_sentence+"\n")
 
                     #提取
-                    extract = re.search('([^ ]+ ){%d}%s( [^ ]+){%d}'%(window, self.COMPANY_NEG, window), wordlist_sentence, flags=0)
+                    extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_NEG, self.window), wordlist_sentence, flags=0)
                     if extract:
-                        fextract_neg.write(extract.group()+"\n")
+                        fextract_neg.write(short_name+"\t"+extract.group()+"\n")
 
                     count += 1
                     if count > each:  #每个公司收集50句
                         break
                 print("collect %s lines"%count)
-        f_neg.close()
+        #f_neg.close()
         fcut_neg.close()
         fextract_neg.close()
 
@@ -75,26 +95,31 @@ class CorpusFactory(object):
                 count = 0
                 for l in f:
                     items = l.strip().split("\t")
+                    title = items[1]
                     text = items[2]
 
                     if len(text) < min_len or text.find(self.COMPANY_POS) < 0:
                         continue
 
-                    f_pos.write(short_name+"\t"+text+"\n")
-                    wordlist = [w for w in list(jieba.cut(text)) if w not in stopword_set]
+                    #f_pos.write("\t".join(items)+'\n')
+                    #wordlist = [w for w in list(jieba.cut(title+' '+text)) if w not in stopword_set]
+                    wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    wordlist = self.delete_some_words(strange_charactor, wordlist)
+                    #print(wordlist)
                     wordlist_sentence = " ".join(wordlist)
+                    wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  # 替换多个空格为1个 '\u2002'
                     fcut_pos.write(wordlist_sentence + "\n")
 
                     #提取
-                    extract = re.search('([^ ]+ ){%d}%s( [^ ]+){%d}'%(window, self.COMPANY_POS, window), wordlist_sentence, flags=0)
+                    extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_POS, self.window), wordlist_sentence, flags=0)
                     if extract:
-                        fextract_pos.write(extract.group()+"\n")
+                        fextract_pos.write(short_name+"\t"+extract.group()+"\n")
 
                     count += 1
                     if count > each:  #每个公司收集50句
                         break
                 print("collect %s lines"%count)
-        f_pos.close()
+        #f_pos.close()
         fcut_pos.close()
         fextract_pos.close()
 

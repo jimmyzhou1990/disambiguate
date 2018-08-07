@@ -57,7 +57,8 @@ conf = {
     'lr'        :
     {
         'corpus_path'  :   '/home/op/work/survey/corpus/lr',
-        'window'          :   20,
+        'window'          :   50,
+        'range'           :   35,
         'topn'            :   5,
     }
 
@@ -69,7 +70,7 @@ if sys.argv[1] == 'collect':
     print("collecting...")
     fac = CorpusFactory(conf)
     #fac.collect_corpus(sys.argv[2])
-    fac.collect_lr_corpus(20)
+    fac.collect_lr_corpus()
 
 elif sys.argv[1] == 'w2vec':
     print("train model ...")
@@ -86,14 +87,14 @@ elif sys.argv[1] == 'clean':
 elif sys.argv[1] == 'logistic':
     logistic(conf, sys.argv[2])
 elif sys.argv[1] == 'lr':
-    x_train, y_train, x_test, y_test = get_lr_model_dataset(conf)
+    x_train, y_train, x_test, y_test, x_test_info = get_lr_model_dataset(conf)
     lr = LR_Model()
     lr.train(x_train, y_train)
-    lr.test(x_test, y_test)
+    lr.test(x_test, y_test, x_test_info)
 
-    svm = SVM_Model()
-    svm.train(x_train, y_train)
-    svm.test(x_test, y_test)
+    #svm = SVM_Model()
+    #svm.train(x_train, y_train)
+    #svm.test(x_test, y_test)
 
 
 
