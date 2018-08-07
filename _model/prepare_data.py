@@ -146,7 +146,7 @@ def load_feature_set(corpus_path, window, topn, keyword, w2vec, vocab_set):
             topn_offset_list, topn_simi_list = topn_similarity("COMPANY_NAME", wordlist,
                                                                topn, window, 15, w2vec, vocab_set)
 
-            feature = topn_simi_list + topn_offset_list
+            feature = topn_simi_list + topn_offset_list  # [offset/15 for offset in topn_offset_list]
             x_set.append(feature)
 
     return x_set
