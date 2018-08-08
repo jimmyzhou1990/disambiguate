@@ -193,7 +193,6 @@ def load_feature(corpus_path, window, range, topn, keyword, w2vec, vocab_set):
 
             x_set.append(vecsum)
             x_info.append((shortname, "".join(wordlist), feature_wlist))
-
     return x_set, x_info
 
 def get_lr_model_dataset(conf):
@@ -246,7 +245,7 @@ def get_lr_model_dataset(conf):
     return x_train, y_train, x_test, y_test, x_test_info
 
 
-def load_sentence_feature(corpus_path, window, range, keyword, w2vec, vocab_set):
+def load_sentence_feature(corpus_path, window, range, seq_length,  keyword, w2vec, vocab_set):
     x_set = []
     x_info = []
     with open(corpus_path, 'r') as f:
@@ -268,10 +267,12 @@ def load_sentence_feature(corpus_path, window, range, keyword, w2vec, vocab_set)
                 if w in vocab_set and filter_word(w):
                     veclist.append(w2vec[w])
                     feature_wlist.append(w)
+            if len(veclist) < seq_length:   #padding 0
+                padding = [np.zeros(100)]*(seq_length-len(veclist))
+                veclist = veclist + padding
 
             x_set.append(veclist)
             x_info.append((shortname, "".join(wordlist), feature_wlist))
-
     return x_set, x_info
 
 
@@ -288,14 +289,15 @@ def get_lstm_dataset(conf):
     company_pos = conf['COMPANY_POS']
 
     x_neg, x_neg_info = load_sentence_feature(corpus_path + '/extract_%d_lr_cut.neg' % window,
-                                     window, range, company_neg, w2vec, vocab_set)
-
-    y_neg = [0, 1] * len(x_neg)
+                                     window, range, 2*range,  company_neg, w2vec, vocab_set)
+    print(x_neg[0][0])
+    print(x_neg[0][-1])
+    y_neg = [[0, 1]] * len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
     x_pos, x_pos_info = load_sentence_feature(corpus_path+'/extract_%d_lr_cut.pos'%window,
-                                             window, range, company_pos, w2vec, vocab_set)
-    y_pos = [1, 0]*len(x_pos)
+                                             window, range, 2*range, company_pos, w2vec, vocab_set)
+    y_pos = [[1, 0]]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
 
     x_set = x_neg + x_pos
@@ -319,9 +321,9 @@ def get_lstm_dataset(conf):
     x_test_info = x_info[train_set_len:]
 
     print("training set 1-5:")
-    print(x_train[0:5])
+    #print(x_train[0:5])
     print(y_train[0:5])
-
+    print(x_train.shape)
     return x_train, y_train, x_test, y_test, x_test_info
 
 

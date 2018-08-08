@@ -104,7 +104,7 @@ elif sys.argv[1] == 'lr':
 elif sys.argv[1] == 'lstm':
     x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
     lstm = Text_LSTM()
-    lstm.train_and_test(x_train, y_train, x_test, y_test, 10, 100)
+    lstm.train_and_test(x_train, y_train, x_test, y_test, 20, 100)
 
 
 
