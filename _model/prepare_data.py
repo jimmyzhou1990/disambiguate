@@ -168,6 +168,34 @@ def load_feature_set(corpus_path, window, range, topn, keyword, w2vec, vocab_set
 
     return x_set, x_info
 
+def load_feature(corpus_path, window, range, topn, keyword, w2vec, vocab_set):
+    x_set = []
+    x_info = []
+    with open(corpus_path, 'r') as f:
+        for l in f:
+            items = l.strip().split("\t")
+            wordlist = items[1].split(" ")
+            shortname = items[0]
+
+            if len(wordlist) < window or keyword not in wordlist:
+                continue
+            keyword_position = wordlist.index(keyword)
+
+            vecsum = np.zeros(100)
+            feature_wlist = []
+            for index, w in enumerate(wordlist):
+                if index < keyword_position - range or index > keyword_position + range:
+                    continue
+
+                if w in vocab_set and filter_word(w):
+                    vecsum += w2vec[w]
+                    feature_wlist.append(w)
+
+            x_set.append(vecsum)
+            x_info.append((shortname, "".join(wordlist), feature_wlist))
+
+    return x_set, x_info
+
 def get_lr_model_dataset(conf):
     jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
     w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path'])
@@ -181,12 +209,12 @@ def get_lr_model_dataset(conf):
     company_pos = conf['COMPANY_POS']
 
 
-    x_neg, x_neg_info = load_feature_set(corpus_path+'/extract_%d_lr_cut.neg'%window,
+    x_neg, x_neg_info = load_feature(corpus_path+'/extract_%d_lr_cut.neg'%window,
                                              window, range, topn, company_neg, w2vec, vocab_set)
     y_neg = [0]*len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
-    x_pos, x_pos_info = load_feature_set(corpus_path+'/extract_%d_lr_cut.pos'%window,
+    x_pos, x_pos_info = load_feature(corpus_path+'/extract_%d_lr_cut.pos'%window,
                                              window, range, topn, company_pos, w2vec, vocab_set)
     y_pos = [1]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
@@ -196,7 +224,7 @@ def get_lr_model_dataset(conf):
     x_info = x_neg_info + x_pos_info
 
     import random
-    randnum = random.randint(0, 100)
+    randnum = 50   #固定训练集和测试集
     random.seed(randnum)
     random.shuffle(x_set)
     random.seed(randnum)

@@ -10,6 +10,12 @@ class LR_Model(object):
     def train(self, x_train, y_train):
         self.lr.fit(x_train, y_train)
 
+    def save(self, conf):
+        path = conf['lr']['model_path']+'/lr.model'
+        import pickle
+        with open(path, 'wb+') as f:
+            pickle.dump(self, f)
+
     def test(self, x_test, y_test, x_test_info):
         #score = self.lr.score(x_test, y_test)
         #print('Score: %f'%score)
@@ -34,15 +40,29 @@ class LR_Model(object):
                 print("company name:%s"%x_test_info[index][0])
                 print("primary sentence:")
                 print(x_test_info[index][1])
-                print("similarity and distance:")
-                print(x_test_info[index][2])
-                print("topn list:")
-                print("similarity        distance          word")
-                for top in x_test_info[index][3]:
-                    print("%.5f           %.5f           %s"%(top[0], top[1], top[2]))
+                #print("similarity and distance:")
+                #print(x_test_info[index][2])
+                print("feature word list:")
+                for w in x_test_info[index][2]:
+                    print(w)
+                #print("similarity        distance          word")
+                #for top in x_test_info[index][3]:
+                #    print("%.5f           %.5f           %s"%(top[0], top[1], top[2]))
                 print("------------------------------------------------------")
-
-
+            else:
+                print("Good case,   y_ture:%.3f,   y_out:(%.3f, %.3f)"%(y, y_out[0], y_out[1]))
+                print("company name:%s"%x_test_info[index][0])
+                print("primary sentence:")
+                print(x_test_info[index][1])
+                #print("similarity and distance:")
+                #print(x_test_info[index][2])
+                print("feature word list:")
+                for w in x_test_info[index][2]:
+                    print(w)
+                #print("similarity        distance          word")
+                #for top in x_test_info[index][3]:
+                #    print("%.5f           %.5f           %s"%(top[0], top[1], top[2]))
+                print("------------------------------------------------------")
 
         print("recall: %f"%(rec_count/pos_count))
         print("accu: %f"%(acu_count/num))

@@ -1,5 +1,6 @@
 import gensim
 import jieba
+import numpy as np
 
 class Disambiguate(object):
     def __init__(self, conf):
@@ -12,6 +13,10 @@ class Disambiguate(object):
         self.COMPANY_NAME = conf['company_name']
         self.cases = []
         self.topn = conf['topn']
+        self.evaluate_corpus = conf['evaluate_corpus']
+        self.lr_range = conf['lr']['range']
+        self.stopword_set = set([l.strip() for l in open(conf['stopwords_path'], 'rt')])
+        self.lr_modelpath = conf['lr']['model_path']
 
     def find(self, s, m):
         i = 0
@@ -124,3 +129,80 @@ class Disambiguate(object):
             print("[%s]---%s"%(case['short_name'], case['sentence']))
             print("similarity with COMPANY_POS: %f"%similarity_summary)
             print("---------------------------------------------------------------------------------")
+
+    def filter_word(self, word):
+        import re
+        if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
+            return False
+
+        pattern_str = '''[0-9]|[a-z]|[A-Z]|月|年|日|中|】|【|前|后|上午|
+        再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
+        一|以来|称|上海|深圳|广州|重庆|北京|苏州|南京|杭州|武汉|江苏|国际|刚刚|查看|
+        已|今天|近期|有望|一直|继续|昨天|五|预计|丨''';
+        # print("feature filter patterh: %s"%pattern_str)
+
+        pattern = re.compile(pattern_str)
+        res = pattern.search(word)
+
+        if res:
+            return False
+        return True
+
+    def get_feature_average(self, wordlist, range, short_name, position, w2vec, vocab_set):
+        vecsum = np.zeros(100)
+        feature_word = []
+
+        for index, w in enumerate(wordlist):
+            if w == short_name or not self.filter_word(w) or w not in vocab_set:
+                continue
+
+            if index < position - range or index > position + range:
+                continue
+
+            vecsum += w2vec[w]
+            feature_word.append(w)
+
+        return vecsum, (short_name, "".join(wordlist), feature_word)
+
+
+    def load_eval_corpus(self):
+        x_eval = []
+        x_info = []
+        y_eval = []
+        with open(self.evaluate_corpus, 'r') as f:
+            for l in f:
+                items = l.strip().split('\t')
+                if len(items) != 3:
+                    print("eval corpus bad line: short-name    text    label")
+                    continue
+
+                short_name, text, label = items
+                wordlist = [w for w in list(jieba.cut(text))]
+
+                try:
+                    position = wordlist.index(short_name)
+                except:
+                    print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
+                    continue
+
+                vecsum, text_info = self.get_feature_average(wordlist, self.lr_range, short_name,
+                                         position, self.w2v_model, self.vocab_set)
+
+                x_eval.append(vecsum)
+                x_info.append(text_info)
+                y_eval.append(1 if label == '1' else 0)
+
+        return np.array(x_eval), np.array(y_eval), x_info
+
+    def evaluate_lr_model(self):
+        import pickle
+
+        x_eval, y_eval, x_info = self.load_eval_corpus()
+
+        with open(self.lr_modelpath+'/lr.model', 'rb') as f:
+            lr = pickle.load(f)
+        print(type(lr))
+
+        lr.test(x_eval, y_eval, x_info)
+
+

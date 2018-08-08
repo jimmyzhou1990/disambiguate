@@ -27,6 +27,7 @@ conf = {
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
     'w2v_model_path'     : '/home/op/work/survey/model/company_pos.model',
     'test_corpus_path' : '/home/op/work/survey/data/test.txt',
+    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
     'COMPANY_POS'      : 'COMPANY_POS',
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
@@ -58,6 +59,8 @@ conf = {
     'lr'        :
     {
         'corpus_path'  :   '/home/op/work/survey/corpus/lr',
+        'test_path'    :   '/home/op/work/survey/data/test_lr.txt',
+        'model_path'   :   '/home/op/work/survey/model/lr/',
         'window'          :   50,
         'range'           :   35,
         'topn'            :   5,
@@ -80,7 +83,7 @@ elif sys.argv[1] == 'w2vec':
 elif sys.argv[1] == 'test':
     print("test model...")
     disam = Disambiguate(conf)
-    disam.test()
+    disam.evaluate_lr_model()
 elif sys.argv[1] == 'clean':
     print("clean corpus...")
     cleaner = CorpusCleaner(conf)
@@ -92,7 +95,7 @@ elif sys.argv[1] == 'lr':
     lr = LR_Model()
     lr.train(x_train, y_train)
     lr.test(x_test, y_test, x_test_info)
-
+    lr.save(conf)
     #svm = SVM_Model()
     #svm.train(x_train, y_train)
     #svm.test(x_test, y_test)
