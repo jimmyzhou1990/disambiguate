@@ -9,8 +9,9 @@ class w2vectorFactory(object):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
         self.corpus_path = conf['corpus_path']
         self.stopwords_path = conf['stopwords_path']
-        self.model_path = conf['model_path']
+        self.model_path = conf['w2v_model_path']
         self.sentence_path = conf["sentence_path"]
+        self.keyword = conf['key_word']
         self.corpus = []
         self.sentences = []
 
@@ -83,8 +84,17 @@ class w2vectorFactory(object):
             self.cut()
 
         elif cmd == 'test':
+            worlist = ['电脑', '银行', '上海', '汽车', '人民币',
+                       '新闻', '大厦', '股票', '上市', '公路',
+                       '动物园', '地铁', '蓝天', '春节', '公司', '习近平']
             model = gensim.models.Word2Vec.load(self.model_path)
-            print(model.most_similar('COMPANY_NAME', topn=100))
+            vocab_set = set(model.wv.vocab)
+            print(model.most_similar(self.keyword, topn=500))
+
+            for w in worlist:
+                if w in vocab_set:
+                    print("topn similarity with [%s]"%w)
+                    print(model.most_similar(w, topn=50))
 
         elif cmd == 'all':
             self.load_sure_corpus()
@@ -92,7 +102,7 @@ class w2vectorFactory(object):
             self.load_sentence()
             self.word2vec()
             model = gensim.models.Word2Vec.load(self.model_path)
-            print(model.most_similar('COMPANY_NAME', topn=100))
+            print(model.most_similar(self.keyword, topn=1000))
 
         else:
             print("invalid cmd: train|cut|test")

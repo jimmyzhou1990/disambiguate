@@ -33,6 +33,7 @@ conf = {
     'embeding_size'    : 100,
     'topn'             : 10,
     'company_name'     : "COMPANY_NAME",
+    'key_word'         : "COMPANY_NAME",
 
     'clean_config' :
     {

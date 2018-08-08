@@ -108,10 +108,16 @@ def filter_word(word):
     import re
     if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
         return False
-    res = re.search(r'''[0-9]|[a-z]|[A-Z]|月|年|日|中|】|【|前|后|上午|再|原|一个|不断|时间|时|
-    记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|一|以来|称|
-    上海|深圳|广州|重庆|北京|苏州|南京|杭州|武汉|江苏|国际|刚刚|查看''',
-            word, flags=0)
+
+    pattern_str = '''[0-9]|[a-z]|[A-Z]|月|年|日|中|】|【|前|后|上午|
+    再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
+    一|以来|称|上海|深圳|广州|重庆|北京|苏州|南京|杭州|武汉|江苏|国际|刚刚|查看|
+    已|今天|近期|有望|一直|继续|昨天|五|预计''';
+    #print("feature filter patterh: %s"%pattern_str)
+
+    pattern = re.compile(pattern_str)
+    res = pattern.search(word)
+
     if res:
         return False
     return True
