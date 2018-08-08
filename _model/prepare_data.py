@@ -246,6 +246,84 @@ def get_lr_model_dataset(conf):
     return x_train, y_train, x_test, y_test, x_test_info
 
 
+def load_sentence_feature(corpus_path, window, range, keyword, w2vec, vocab_set):
+    x_set = []
+    x_info = []
+    with open(corpus_path, 'r') as f:
+        for l in f:
+            items = l.strip().split("\t")
+            wordlist = items[1].split(" ")
+            shortname = items[0]
+
+            if len(wordlist) < window or keyword not in wordlist:
+                continue
+            keyword_position = wordlist.index(keyword)
+
+            veclist = []
+            feature_wlist = []
+            for index, w in enumerate(wordlist):
+                if index < keyword_position - range or index > keyword_position + range:
+                    continue
+
+                if w in vocab_set and filter_word(w):
+                    veclist.append(w2vec[w])
+                    feature_wlist.append(w)
+
+            x_set.append(veclist)
+            x_info.append((shortname, "".join(wordlist), feature_wlist))
+
+    return x_set, x_info
+
+
+def get_lstm_dataset(conf):
+    jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
+    w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path'])
+    vocab_set = set(w2vec.wv.vocab)
+
+    window = int(conf['lr']['window'])
+    range = int(conf['lr']['range'])
+    topn = int(conf['lr']['topn'])
+    corpus_path = conf['lr']['corpus_path']
+    company_neg = conf['COMPANY_NEG']
+    company_pos = conf['COMPANY_POS']
+
+    x_neg, x_neg_info = load_sentence_feature(corpus_path + '/extract_%d_lr_cut.neg' % window,
+                                     window, range, company_neg, w2vec, vocab_set)
+
+    y_neg = [0, 1] * len(x_neg)
+    print("neg sample: %d"%len(x_neg))
+
+    x_pos, x_pos_info = load_sentence_feature(corpus_path+'/extract_%d_lr_cut.pos'%window,
+                                             window, range, company_pos, w2vec, vocab_set)
+    y_pos = [1, 0]*len(x_pos)
+    print("pos sample: %d"%len(x_pos))
+
+    x_set = x_neg + x_pos
+    y_set = y_neg + y_pos
+    x_info = x_neg_info + x_pos_info
+
+    import random
+    randnum = 50   #固定训练集和测试集
+    random.seed(randnum)
+    random.shuffle(x_set)
+    random.seed(randnum)
+    random.shuffle(y_set)
+    random.seed(randnum)
+    random.shuffle(x_info)
+
+    train_set_len = int(len(x_set) * 0.8)
+    x_train = np.array(x_set[0:train_set_len])
+    y_train = np.array(y_set[0:train_set_len])
+    x_test = np.array(x_set[train_set_len:])
+    y_test = np.array(y_set[train_set_len:])
+    x_test_info = x_info[train_set_len:]
+
+    print("training set 1-5:")
+    print(x_train[0:5])
+    print(y_train[0:5])
+
+    return x_train, y_train, x_test, y_test, x_test_info
+
 
 
 

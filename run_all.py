@@ -5,8 +5,10 @@ from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
 from _model.logistic_interface import logistic
 from _model.lr_model import LR_Model
-from _model.lr_model import SVM_Model
+from _model.lstm_model import Text_LSTM
+from _model.lr_model  import  SVM_Model
 from _model.prepare_data import get_lr_model_dataset
+from _model.prepare_data import  get_lstm_dataset
 
 def load_config(conf):
     with open("/home/op/work/survey/data/company_disambiguate.txt") as f:
@@ -99,8 +101,10 @@ elif sys.argv[1] == 'lr':
     #svm = SVM_Model()
     #svm.train(x_train, y_train)
     #svm.test(x_test, y_test)
-
-
+elif sys.argv[1] == 'lstm':
+    x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
+    lstm = Text_LSTM()
+    lstm.train_and_test(x_train, y_train, x_test, y_test, 10, 100)
 
 
 
