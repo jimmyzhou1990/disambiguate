@@ -66,6 +66,11 @@ conf = {
         'window'          :   50,
         'range'           :   35,
         'topn'            :   5,
+    },
+
+    'lstm'     :
+    {
+        'mpdel_path'    :  '/home/op/work/survey/model/lstm/',
     }
 
 }
@@ -82,29 +87,31 @@ elif sys.argv[1] == 'w2vec':
     print("train model ...")
     fac = w2vectorFactory(conf)
     fac.model(sys.argv[2])
+
 elif sys.argv[1] == 'test':
     print("test model...")
     disam = Disambiguate(conf)
-    disam.evaluate_lr_model()
+    disam.evaluate_models(sys.argv[2])
+
 elif sys.argv[1] == 'clean':
     print("clean corpus...")
     cleaner = CorpusCleaner(conf)
     cleaner.clean()
+
 elif sys.argv[1] == 'logistic':
     logistic(conf, sys.argv[2])
+
 elif sys.argv[1] == 'lr':
     x_train, y_train, x_test, y_test, x_test_info = get_lr_model_dataset(conf)
     lr = LR_Model()
     lr.train(x_train, y_train)
     lr.test(x_test, y_test, x_test_info)
     lr.save(conf)
-    #svm = SVM_Model()
-    #svm.train(x_train, y_train)
-    #svm.test(x_test, y_test)
+
 elif sys.argv[1] == 'lstm':
     x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
     lstm = Text_LSTM()
-    lstm.train_and_test(x_train, y_train, x_test, y_test, 20, 100)
+    lstm.train_and_test(x_train, y_train, x_test, y_test, 10, 100, conf['lstm']['model_path'])
 
 
 

@@ -54,7 +54,30 @@ class Text_LSTM(object):
         accu = np.mean(y_pred.astype(np.float32))
         return accu
 
-    def train_and_test(self, x_train, y_train, x_test, y_test, epoch, batch_size):
+    def recall(self, y_output, y_input):
+        count_pos = 0
+        count_recall = 0
+        for y_out, y_in in zip(y_output, y_input):
+            if y_in[0] == 1:
+                count_pos += 1
+                if y_out == 1:
+                    count_recall += 1
+        #print("total positive sample: %d"%count_pos)
+        #print("recall rate: %.3f"%(count_recall/count_pos))
+        return count_pos/count_recall
+
+    def bad_case(self, y_output, y_input, x_info):
+        for y_out, y_in in zip(y_output, y_input):
+            if y_out[0] == y_in[0] and y_out[1] == y_in[1]:
+                continue
+            print("Bad case: [%s]"%x_info[0])
+            print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
+            print("primary sentence:")
+            print(x_info[1])
+            print('feature word list:')
+            print(x_info[2])
+
+    def train_and_test(self, x_train, y_train, x_test, y_test, epoch, batch_size, path):
         train_sample_num = len(y_train)
         batch_num = (int)(train_sample_num/batch_size)
         with tf.Session() as sess:
@@ -66,8 +89,6 @@ class Text_LSTM(object):
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
                     _, loss, y_out = sess.run((self.train_op, self.loss, self.y_output), feed_dict=feed_dict)
                     print('[epoch:%d] [batch_num:%d] loss=%9f' % (i, j, loss))
-                    #print(y_out)
-                    #print(y_input)
 
                 #test
                 feed_dict = {self.x_input: x_test, self.y_input: y_test}
@@ -80,11 +101,29 @@ class Text_LSTM(object):
                 shuffle_indices = np.random.permutation(np.arange(len(y_train)))
                 x_train = x_train[shuffle_indices]
                 y_train = y_train[shuffle_indices]
+            saver = tf.train.Saver()
+            self.save(sess, saver, path, 0)
 
-    def prediction(self, x_input, y_input):
+    def save(self, sess, saver, path, step):
+        saver.save(sess, path + 'model.ckpt', step)
+
+    def load(self, sess, saver, path):
+        ckpt = tf.train.get_checkpoint_state(path)
+        if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(sess, ckpt.model_checkpoint_path)
+
+    def predict(self, sess, x_input, y_input, x_info):
+        feed_dict = {self.x_input:x_input, self.y_input:y_input}
+        y_output = sess.run(self.y_output, feed_dict=feed_dict)
+
+        accu = self.accuracy(y_output, y_input)
+        recall = self.recall(y_output, y_input)
+
+        self.bad_case(y_output, y_input, x_info)
+        print("accu:  %.3f,  recall: %.3f"%(accu, recall))
+
+    def evaluate(self, x_input, y_input, x_info, model_path):
+        saver = tf.train.Saver()
         with tf.Session() as sess:
-            feed_dict = {self.x_input:x_input, self.y_input:y_input}
-            y_output = sess.run(self.y_output, feed_dict=feed_dict)
-            accu = self.accuracy(y_output, y_input)
-        return accu
-
+            self.load(sess, saver, model_path)
+            self.predict(sess, x_input, y_input, x_info)

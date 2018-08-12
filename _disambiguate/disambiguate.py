@@ -1,6 +1,7 @@
 import gensim
 import jieba
 import numpy as np
+from _model.lstm_model import Text_LSTM
 
 class Disambiguate(object):
     def __init__(self, conf):
@@ -17,6 +18,7 @@ class Disambiguate(object):
         self.lr_range = conf['lr']['range']
         self.stopword_set = set([l.strip() for l in open(conf['stopwords_path'], 'rt')])
         self.lr_modelpath = conf['lr']['model_path']
+        self.lstm_modelpath = conf['lstm']['model_path']
 
     def find(self, s, m):
         i = 0
@@ -165,7 +167,7 @@ class Disambiguate(object):
         return vecsum, (short_name, "".join(wordlist), feature_word)
 
 
-    def load_eval_corpus(self):
+    def lr_load_eval_corpus(self):
         x_eval = []
         x_info = []
         y_eval = []
@@ -194,10 +196,11 @@ class Disambiguate(object):
 
         return np.array(x_eval), np.array(y_eval), x_info
 
+
     def evaluate_lr_model(self):
         import pickle
 
-        x_eval, y_eval, x_info = self.load_eval_corpus()
+        x_eval, y_eval, x_info = self.lr_load_eval_corpus()
 
         with open(self.lr_modelpath+'/lr.model', 'rb') as f:
             lr = pickle.load(f)
@@ -205,4 +208,52 @@ class Disambiguate(object):
 
         lr.test(x_eval, y_eval, x_info)
 
+    def load_sentence_feature(self, range, seq_length, w2vec, vocab_set):
+        x_eval = []
+        y_eval = []
+        x_info = []
+        with open(self.evaluate_corpus, 'r') as f:
+            for l in f:
+                items = l.strip().split('\t')
+                if len(items) != 3:
+                    print("eval corpus bad line: short-name    text    label")
+                    continue
 
+                short_name, text, label = items
+                wordlist = [w for w in list(jieba.cut(text))]
+
+                try:
+                    keyword_position = wordlist.index(short_name)
+                except:
+                    print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
+                    continue
+
+                veclist = []
+                feature_wlist = []
+                for index, w in enumerate(wordlist):
+                    if index < keyword_position - range or index > keyword_position + range:
+                        continue
+                    if w in vocab_set and self.filter_word(w):
+                        veclist.append(w2vec[w])
+                        feature_wlist.append(w)
+                if len(veclist) < seq_length:  # padding 0
+                    padding = [np.zeros(100)] * (seq_length - len(veclist))
+                    veclist = veclist + padding
+
+                x_eval.append(veclist)
+                y_eval.append([1, 0] if label == '1' else [0, 1])
+                x_info.append((short_name, "".join(wordlist), feature_wlist))
+
+        return np.array(x_eval), np.array(y_eval), x_info
+
+    def evaluate_lstm_model(self):
+        x_eval, y_eval, x_info = self.load_sentence_feature(self.lr_range, 2*self.lr_range,
+                                                            self.w2v_model, self.vocab_set)
+        lstm = Text_LSTM()
+        lstm.evaluate(x_eval, y_eval, x_info, self.lstm_modelpath)
+
+    def evaluate_models(self, model):
+        if model == 'lr':
+            self.evaluate_lr_model()
+        elif model == 'lstm':
+            self.evaluate_lstm_model()
