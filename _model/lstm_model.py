@@ -54,28 +54,30 @@ class Text_LSTM(object):
         accu = np.mean(y_pred.astype(np.float32))
         return accu
 
-    def recall(self, y_output, y_input):
+    def count(self, y_output, y_input):
         count_pos = 0
         count_recall = 0
+        total = len(y_input)
         for y_out, y_in in zip(y_output, y_input):
             if y_in[0] == 1:
                 count_pos += 1
-                if y_out == 1:
+                if y_out[0] > 0.5:
                     count_recall += 1
         #print("total positive sample: %d"%count_pos)
         #print("recall rate: %.3f"%(count_recall/count_pos))
-        return count_pos/count_recall
+        return total, count_pos, count_recall/count_pos
 
     def bad_case(self, y_output, y_input, x_info):
-        for y_out, y_in in zip(y_output, y_input):
-            if y_out[0] == y_in[0] and y_out[1] == y_in[1]:
+        for y_out, y_in, info in zip(y_output, y_input, x_info):
+            if np.argmax(y_out, 0) == np.argmax(y_in, 0):
                 continue
-            print("Bad case: [%s]"%x_info[0])
+            print("Bad case: [%s]"%info[0])
             print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
             print("primary sentence:")
-            print(x_info[1])
+            print(info[1])
             print('feature word list:')
-            print(x_info[2])
+            print(info[2])
+            print('--------------------------------------------------')
 
     def train_and_test(self, x_train, y_train, x_test, y_test, epoch, batch_size, path):
         train_sample_num = len(y_train)
@@ -117,10 +119,11 @@ class Text_LSTM(object):
         y_output = sess.run(self.y_output, feed_dict=feed_dict)
 
         accu = self.accuracy(y_output, y_input)
-        recall = self.recall(y_output, y_input)
+        total, pos, recall = self.count(y_output, y_input)
 
         self.bad_case(y_output, y_input, x_info)
         print("accu:  %.3f,  recall: %.3f"%(accu, recall))
+        print("total case: %d, positive: %d"%(total, pos))
 
     def evaluate(self, x_input, y_input, x_info, model_path):
         saver = tf.train.Saver()

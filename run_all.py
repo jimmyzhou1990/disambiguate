@@ -70,7 +70,7 @@ conf = {
 
     'lstm'     :
     {
-        'mpdel_path'    :  '/home/op/work/survey/model/lstm/',
+        'model_path'    :  '/home/op/work/survey/model/lstm/',
     }
 
 }

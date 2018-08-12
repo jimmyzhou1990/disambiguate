@@ -231,7 +231,7 @@ class Disambiguate(object):
                 veclist = []
                 feature_wlist = []
                 for index, w in enumerate(wordlist):
-                    if index < keyword_position - range or index > keyword_position + range:
+                    if index < keyword_position - range or index > keyword_position + range or w == short_name:
                         continue
                     if w in vocab_set and self.filter_word(w):
                         veclist.append(w2vec[w])
