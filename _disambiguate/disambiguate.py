@@ -240,9 +240,10 @@ class Disambiguate(object):
                     padding = [np.zeros(100)] * (seq_length - len(veclist))
                     veclist = veclist + padding
 
-                x_eval.append(veclist)
-                y_eval.append([1, 0] if label == '1' else [0, 1])
-                x_info.append((short_name, "".join(wordlist), feature_wlist))
+                if len(feature_wlist) >= 5:
+                    x_eval.append(veclist)
+                    y_eval.append([1, 0] if label == '1' else [0, 1])
+                    x_info.append((short_name, "".join(wordlist), feature_wlist))
 
         return np.array(x_eval), np.array(y_eval), x_info
 
