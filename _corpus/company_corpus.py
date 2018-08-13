@@ -114,7 +114,7 @@ class CorpusFactory(object):
                     wordlist_sentence = " ".join(wordlist)
                     wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  # 替换多个空格为1个 '\u2002'
                     #fcut_pos.write(wordlist_sentence + "\n")
-                    f_title_neg.close()
+                    f_title_neg.write(short_name+'\t'+wordlist_sentence+'\n')
                     #提取
                     # extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_POS, self.window), wordlist_sentence, flags=0)
                     # if extract:
