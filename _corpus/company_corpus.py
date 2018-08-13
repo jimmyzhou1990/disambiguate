@@ -23,12 +23,14 @@ class CorpusFactory(object):
     def collect_lr_corpus(self):
         #f_pos = open("%s/lr/lr.pos"%self.corpus_path, 'w+')
         #f_neg = open("%s/lr/lr.neg"%self.corpus_path, 'w+')
-        fcut_pos = open("%s/lr/lr_cut.pos"%self.corpus_path, 'w+')
-        fcut_neg = open("%s/lr/lr_cut.neg"%self.corpus_path, 'w+')
-        fextract_pos = open("%s/lr/extract_%d_lr_cut.pos"%(self.corpus_path, self.window), 'w+')
-        fextract_neg = open("%s/lr/extract_%d_lr_cut.neg" % (self.corpus_path, self.window), 'w+')
-        min_len = 50
-        each = 50
+        #fcut_pos = open("%s/lr/lr_cut.pos"%self.corpus_path, 'w+')
+        #fcut_neg = open("%s/lr/lr_cut.neg"%self.corpus_path, 'w+')
+        #fextract_pos = open("%s/lr/extract_%d_lr_cut.pos"%(self.corpus_path, self.window), 'w+')
+        #fextract_neg = open("%s/lr/extract_%d_lr_cut.neg" % (self.corpus_path, self.window), 'w+')
+        f_title_pos = open("%s/lr/lr_title.pos"%self.corpus_path, 'w+')
+        f_title_neg = open("%s/lr/lr_title.neg" % self.corpus_path, 'w+')
+        min_len = 20
+        each = 100
 
         key_word = ['股票', '股吧', '上市', '股份', '经营', '大盘', '成交金额', '投资', '跌停',
                     '负债', '发债', '债券', '控股', '公司', '融资', '涨停', '利润', '集团',
@@ -61,30 +63,32 @@ class CorpusFactory(object):
                         if text.find(k) >= 0 or title.find(k) >= 0:
                             conflag = True
 
-                    if len(text) < min_len or text.find(self.COMPANY_NEG) < 0 or conflag:
+                    if len(title) < min_len or text.find(self.COMPANY_NEG) < 0 or conflag:
                         continue
 
                     #f_neg.write('\t'.join(items)+"\n")
                     #wordlist = [w for w in list(jieba.cut(title+' '+text)) if w not in stopword_set]
-                    wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    #wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    wordlist = [w for w in list(jieba.cut(title))]
                     wordlist = self.delete_some_words(strange_charactor, wordlist)
                     #print(wordlist)
                     wordlist_sentence = " ".join(wordlist)
                     wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  #替换多个空格为1个
-                    fcut_neg.write(wordlist_sentence+"\n")
+                    #fcut_neg.write(wordlist_sentence+"\n")
 
                     #提取
-                    extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_NEG, self.window), wordlist_sentence, flags=0)
-                    if extract:
-                        fextract_neg.write(short_name+"\t"+extract.group()+"\n")
-
+                    # extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_NEG, self.window), wordlist_sentence, flags=0)
+                    # if extract:
+                    #     fextract_neg.write(short_name+"\t"+extract.group()+"\n")
+                    f_title_pos.write(short_name+'\t'+wordlist_sentence+'\n')
                     count += 1
                     if count > each:  #每个公司收集50句
                         break
                 print("collect %s lines"%count)
         #f_neg.close()
-        fcut_neg.close()
-        fextract_neg.close()
+        #fcut_neg.close()
+        #fextract_neg.close()
+        f_title_pos.close()
 
         #收集正例语料
         for company in self.company_list:
@@ -98,30 +102,32 @@ class CorpusFactory(object):
                     title = items[1]
                     text = items[2]
 
-                    if len(text) < min_len or text.find(self.COMPANY_POS) < 0:
+                    if len(title) < min_len or text.find(self.COMPANY_POS) < 0:
                         continue
 
                     #f_pos.write("\t".join(items)+'\n')
                     #wordlist = [w for w in list(jieba.cut(title+' '+text)) if w not in stopword_set]
-                    wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    #wordlist = [w for w in list(jieba.cut(title + ' ' + text))]
+                    wordlist = [w for w in list(jieba.cut(title))]
                     wordlist = self.delete_some_words(strange_charactor, wordlist)
                     #print(wordlist)
                     wordlist_sentence = " ".join(wordlist)
                     wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  # 替换多个空格为1个 '\u2002'
-                    fcut_pos.write(wordlist_sentence + "\n")
-
+                    #fcut_pos.write(wordlist_sentence + "\n")
+                    f_title_neg.close()
                     #提取
-                    extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_POS, self.window), wordlist_sentence, flags=0)
-                    if extract:
-                        fextract_pos.write(short_name+"\t"+extract.group()+"\n")
+                    # extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_POS, self.window), wordlist_sentence, flags=0)
+                    # if extract:
+                    #     fextract_pos.write(short_name+"\t"+extract.group()+"\n")
 
                     count += 1
                     if count > each:  #每个公司收集50句
                         break
                 print("collect %s lines"%count)
         #f_pos.close()
-        fcut_pos.close()
-        fextract_pos.close()
+        #fcut_pos.close()
+        #fextract_pos.close()
+        f_title_neg.close()
 
     def collect_sure_corpus(self):
         for company in self.company_list:
