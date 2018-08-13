@@ -80,7 +80,7 @@ class CorpusFactory(object):
                     # extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_NEG, self.window), wordlist_sentence, flags=0)
                     # if extract:
                     #     fextract_neg.write(short_name+"\t"+extract.group()+"\n")
-                    f_title_pos.write(short_name+'\t'+wordlist_sentence+'\n')
+                    f_title_neg.write(short_name+'\t'+wordlist_sentence+'\n')
                     count += 1
                     if count > each:  #每个公司收集50句
                         break
@@ -88,7 +88,7 @@ class CorpusFactory(object):
         #f_neg.close()
         #fcut_neg.close()
         #fextract_neg.close()
-        f_title_pos.close()
+        f_title_neg.close()
 
         #收集正例语料
         for company in self.company_list:
@@ -114,7 +114,7 @@ class CorpusFactory(object):
                     wordlist_sentence = " ".join(wordlist)
                     wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  # 替换多个空格为1个 '\u2002'
                     #fcut_pos.write(wordlist_sentence + "\n")
-                    f_title_neg.write(short_name+'\t'+wordlist_sentence+'\n')
+                    f_title_pos.write(short_name+'\t'+wordlist_sentence+'\n')
                     #提取
                     # extract = re.search('([^ ]+ ){0,%d}%s( [^ ]+){%d}'%(self.window, self.COMPANY_POS, self.window), wordlist_sentence, flags=0)
                     # if extract:
@@ -127,7 +127,7 @@ class CorpusFactory(object):
         #f_pos.close()
         #fcut_pos.close()
         #fextract_pos.close()
-        f_title_neg.close()
+        f_title_pos.close()
 
     def collect_sure_corpus(self):
         for company in self.company_list:
