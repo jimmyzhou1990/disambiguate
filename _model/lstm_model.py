@@ -3,7 +3,7 @@ from tensorflow.contrib import rnn
 import numpy as np
 
 class Text_LSTM(object):
-    def __init__(self, max_seq_length=70, embedding_size=100, hidden_units=32):
+    def __init__(self, max_seq_length=70, embedding_size=100, hidden_units=128):
 
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
@@ -29,7 +29,8 @@ class Text_LSTM(object):
             return length
 
         cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
-        outputs, last_states = tf.nn.dynamic_rnn(cell=cell,
+        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1.0, output_keep_prob=1.0)
+        outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
                                                  dtype=tf.float32,
                                                  sequence_length = length(input_x),
                                                  inputs=input_x)
@@ -79,7 +80,7 @@ class Text_LSTM(object):
             print(info[2])
             print('--------------------------------------------------')
 
-    def train_and_test(self, x_train, y_train, x_test, y_test, epoch, batch_size, path):
+    def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
         batch_num = (int)(train_sample_num/batch_size)
         with tf.Session() as sess:
@@ -103,6 +104,9 @@ class Text_LSTM(object):
                 shuffle_indices = np.random.permutation(np.arange(len(y_train)))
                 x_train = x_train[shuffle_indices]
                 y_train = y_train[shuffle_indices]
+
+            self.bad_case(y_output, y_test, x_test_info)
+
             saver = tf.train.Saver()
             self.save(sess, saver, path, 0)
 

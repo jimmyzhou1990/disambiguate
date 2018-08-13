@@ -29,7 +29,7 @@ conf = {
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
     'w2v_model_path'     : '/home/op/work/survey/model/company_pos.model',
     'test_corpus_path' : '/home/op/work/survey/data/test.txt',
-    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_all.txt',
     'COMPANY_POS'      : 'COMPANY_POS',
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
@@ -111,7 +111,7 @@ elif sys.argv[1] == 'lr':
 elif sys.argv[1] == 'lstm':
     x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
     lstm = Text_LSTM()
-    lstm.train_and_test(x_train, y_train, x_test, y_test, 10, 100, conf['lstm']['model_path'])
+    lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 5, 100, conf['lstm']['model_path'])
 
 
 

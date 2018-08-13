@@ -271,7 +271,7 @@ def load_sentence_feature(corpus_path, window, range, seq_length,  keyword, w2ve
                 padding = [np.zeros(100)]*(seq_length-len(veclist))
                 veclist = veclist + padding
 
-            if len(feature_wlist) >= 5:
+            if len(feature_wlist) >= 1:
                 x_set.append(veclist)
                 x_info.append((shortname, "".join(wordlist), feature_wlist))
     return x_set, x_info
