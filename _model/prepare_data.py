@@ -254,7 +254,7 @@ def load_sentence_feature(corpus_path, window, range, seq_length,  keyword, w2ve
             wordlist = items[1].split(" ")
             shortname = items[0]
 
-            if len(wordlist) < window or keyword not in wordlist:
+            if  keyword not in wordlist:
                 continue
             keyword_position = wordlist.index(keyword)
 
@@ -289,14 +289,14 @@ def get_lstm_dataset(conf):
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
 
-    x_neg, x_neg_info = load_sentence_feature(corpus_path + '/lr_title.neg' % window,
+    x_neg, x_neg_info = load_sentence_feature(corpus_path + '/lr_title.neg',
                                      window, range, 2*range,  company_neg, w2vec, vocab_set)
     print(x_neg[0][0])
     print(x_neg[0][-1])
     y_neg = [[0, 1]] * len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
-    x_pos, x_pos_info = load_sentence_feature(corpus_path+'/lr_title.pos'%window,
+    x_pos, x_pos_info = load_sentence_feature(corpus_path+'/lr_title.pos',
                                              window, range, 2*range, company_pos, w2vec, vocab_set)
     y_pos = [[1, 0]]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
