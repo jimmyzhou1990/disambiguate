@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib import rnn
 import numpy as np
+import pandas as pd
 
 class Text_LSTM(object):
     def __init__(self, max_seq_length=70, embedding_size=100, hidden_units=128):
@@ -69,6 +70,8 @@ class Text_LSTM(object):
         return total, count_pos, count_recall/count_pos
 
     def bad_case(self, y_output, y_input, x_info):
+        goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
+        badcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         for y_out, y_in, info in zip(y_output, y_input, x_info):
             if np.argmax(y_out, 0) == np.argmax(y_in, 0):
                 continue
@@ -79,6 +82,13 @@ class Text_LSTM(object):
             print('feature word list:')
             print(info[2])
             print('--------------------------------------------------')
+            badcase["company"].append(info[0])
+            badcase["real"].append("(%.3f, %.3f)"%(y_in[0], y_in[1]))
+            badcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
+            badcase["sentence"].append(info[1])
+            badcase["feature word list"].append(str(info[2]))
+        df = pd.DataFrame(badcase)
+        df.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
