@@ -74,6 +74,12 @@ class Text_LSTM(object):
         badcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         for y_out, y_in, info in zip(y_output, y_input, x_info):
             if np.argmax(y_out, 0) == np.argmax(y_in, 0):
+                columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
+                goodcase["company"].append(info[0])
+                goodcase["real"].append("(%.3f, %.3f)"%(y_in[0], y_in[1]))
+                goodcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
+                goodcase["sentence"].append(info[1])
+                goodcase["feature word list"].append(str(info[2]))
                 continue
             print("Bad case: [%s]"%info[0])
             print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
@@ -82,13 +88,16 @@ class Text_LSTM(object):
             print('feature word list:')
             print(info[2])
             print('--------------------------------------------------')
+            columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
             badcase["company"].append(info[0])
             badcase["real"].append("(%.3f, %.3f)"%(y_in[0], y_in[1]))
             badcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
-        df = pd.DataFrame(badcase)
-        df.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False)
+        df_bad = pd.DataFrame(badcase)
+        df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+        df_good = pd.DataFrame(goodcase)
+        df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
