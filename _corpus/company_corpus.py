@@ -20,6 +20,88 @@ class CorpusFactory(object):
         newwords = [w for w in srcwords if w not in delwords]
         return newwords
 
+    def collect_lstm_corpus(self):
+        f_title_pos = open("%s/lstm/lstm_title.pos"%self.corpus_path, 'w+')
+        f_title_neg = open("%s/lstm/lstm_title.neg" % self.corpus_path, 'w+')
+        min_len = 5
+        each =2000
+
+        key_word = ['股票', '股吧', '上市', '股份', '经营', '大盘', '成交金额', '投资', '跌停',
+                    '负债', '发债', '债券', '控股', '公司', '融资', '涨停', '利润', '集团',
+                    '证券', '下跌', '大跌', '收盘', '深股', '港股', '跌了', '跌出', '亏损',
+                    '复牌', '涨跌', '停牌', '复盘', '只股', '成交', '公告', '科技股', '每股',
+                    '股东', '品牌', '枣', '交易所', '买入', '卖出', '柿', '地产', '缩股', '市值',
+                    '加仓', '000022', '000620', '股市', ]
+
+        strange_charactor = ['\u3000', '\u200b', '\u2002', '\u2003', '\u200c', '\u202a', '\u202c',
+                             '\ufeff', '\ue8c3', '\uf8f5', '\ue587', '\ue31c', '\ue193', '\ue033',
+                             '\ue14b', '\ue1a9', '\ue604',
+                             '\xa0', '\x08', '\x07', '\x00', '\xad', '\x0b', ]
+
+        stopword_set = set([l.strip() for l in open(self.stopword_path, 'rt')])
+
+        #收集负例语料
+        for company in self.company_list:
+            short_name = company['short_name']
+            #collect neg
+            print("[%s]collect lr_neg corpus..."%short_name)
+            with open("%s/%s/%s_neg.txt" % (self.corpus_path, short_name, short_name), 'r') as f:
+                count = 0
+                for l in f:
+                    items = l.strip().split("\t")
+                    title = items[1]
+                    text = items[2]
+
+                    conflag = False
+                    for k in key_word:
+                        if text.find(k) >= 0 or title.find(k) >= 0:
+                            conflag = True
+
+                    if len(title) < min_len or text.find(self.COMPANY_NEG) < 0 or conflag:
+                        continue
+
+                    wordlist = [w for w in list(jieba.cut(title))]
+                    wordlist = self.delete_some_words(strange_charactor, wordlist)
+
+                    wordlist_sentence = " ".join(wordlist)
+                    wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  #替换多个空格为1个
+
+                    f_title_neg.write(short_name+'\t'+wordlist_sentence+'\n')
+                    count += 1
+                    if count > each:  #每个公司收集50句
+                        break
+                print("collect %s lines"%count)
+
+        f_title_neg.close()
+
+        #收集正例语料
+        for company in self.company_list:
+            short_name = company['short_name']
+            #collect pos
+            print("[%s]collect lr_pos corpus..."%short_name)
+            with open("%s/%s/%s_pos.txt" % (self.corpus_path, short_name, short_name), 'r') as f:
+                count = 0
+                for l in f:
+                    items = l.strip().split("\t")
+                    title = items[1]
+                    text = items[2]
+
+                    if len(title) < min_len or text.find(self.COMPANY_POS) < 0:
+                        continue
+
+                    wordlist = [w for w in list(jieba.cut(title))]
+                    wordlist = self.delete_some_words(strange_charactor, wordlist)
+                    wordlist_sentence = " ".join(wordlist)
+                    wordlist_sentence = re.sub(r' +', ' ', wordlist_sentence)  # 替换多个空格为1个 '\u2002'
+                    f_title_pos.write(short_name+'\t'+wordlist_sentence+'\n')
+
+
+                    count += 1
+                    if count > each:  #每个公司收集50句
+                        break
+                print("collect %s lines"%count)
+        f_title_pos.close()
+
     def collect_lr_corpus(self):
         #f_pos = open("%s/lr/lr.pos"%self.corpus_path, 'w+')
         #f_neg = open("%s/lr/lr.neg"%self.corpus_path, 'w+')

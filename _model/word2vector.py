@@ -11,6 +11,7 @@ class w2vectorFactory(object):
         self.stopwords_path = conf['stopwords_path']
         self.model_path = conf['w2v_model_path']
         self.sentence_path = conf["sentence_path"]
+        self.sentence_filter_path = conf['sentence_filter_path']
         self.keyword = conf['key_word']
         self.corpus = []
         self.sentences = []
@@ -31,10 +32,19 @@ class w2vectorFactory(object):
         print("load corpus finished. size=%d"%len(self.corpus))
 
     def load_sentence(self):
+        def filter_sentence(sentence):
+            pass
+        f_filter = open(self.sentence_filter_path, 'w+')
         with open(self.sentence_path, "r") as f:
             for line in f:
+                #self.sentences.append([w for w in line.strip().split(" ")])
+                sentence = line.strip()
+                sentence = re.sub('\d+\.\d+%*', '8', sentence)
+                sentence = re.sub("\D\d{1,4}\D|\d{7,}", ' 8 ', sentence)  #替换所有数字(整数/小数/百分数)为8
+                sentence = re.sub(' {2,}', ' ', sentence)
+                f_filter.write(sentence+'\n')
                 self.sentences.append([w for w in line.strip().split(" ")])
-
+        f_filter.close()
 
     def clean_line(self, pattern, s, l):
         l = pattern.sub(s, l)

@@ -27,12 +27,13 @@ conf = {
     'corpus_path'    : '/home/op/work/survey/corpus',
     'user_dict'      : '/home/op/work/survey/data/user_dict.txt',
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
-    'w2v_model_path'     : '/home/op/work/survey/model/company_pos.model',
+    'w2v_model_path'     : '/home/op/work/survey/model/w2vec',
     'test_corpus_path' : '/home/op/work/survey/data/test.txt',
-    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_all.txt',
+    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
     'COMPANY_POS'      : 'COMPANY_POS',
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
+    'sentence_filter_path'    : '/home/op/work/survey/data/sentence_sure_filter.txt',
     'embeding_size'    : 100,
     'topn'             : 10,
     'company_name'     : "COMPANY_NAME",
@@ -71,6 +72,7 @@ conf = {
     'lstm'     :
     {
         'model_path'    :  '/home/op/work/survey/model/lstm/',
+        'corpus_path'   :  '/home/op/work/survey/corpus/lstm',
     }
 
 }
@@ -81,7 +83,7 @@ if sys.argv[1] == 'collect':
     print("collecting...")
     fac = CorpusFactory(conf)
     #fac.collect_corpus(sys.argv[2])
-    fac.collect_lr_corpus()
+    fac.collect_lstm_corpus()
 
 elif sys.argv[1] == 'w2vec':
     print("train model ...")
@@ -111,7 +113,7 @@ elif sys.argv[1] == 'lr':
 elif sys.argv[1] == 'lstm':
     x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
     lstm = Text_LSTM()
-    lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 5, 100, conf['lstm']['model_path'])
+    lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 25, 1000, conf['lstm']['model_path'])
 
 
 

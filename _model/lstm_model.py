@@ -20,7 +20,7 @@ class Text_LSTM(object):
         self.loss = self.loss_function(self.y_input, self.y_output)
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
-        self.train_op = tf.train.AdamOptimizer(0.01).minimize(self.loss)
+        self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
 
     def rnn_layer(self, input_x, hidden_units):
         def length(sequence):
@@ -94,10 +94,10 @@ class Text_LSTM(object):
             badcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
-        df_bad = pd.DataFrame(badcase)
-        df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
-        df_good = pd.DataFrame(goodcase)
-        df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
+        #df_bad = pd.DataFrame(badcase)
+        #df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+        #df_good = pd.DataFrame(goodcase)
+        #df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)

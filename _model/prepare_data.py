@@ -285,18 +285,18 @@ def get_lstm_dataset(conf):
     window = int(conf['lr']['window'])
     range = int(conf['lr']['range'])
     topn = int(conf['lr']['topn'])
-    corpus_path = conf['lr']['corpus_path']
+    corpus_path = conf['lstm']['corpus_path']
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
 
-    x_neg, x_neg_info = load_sentence_feature(corpus_path + '/lr_title.neg',
+    x_neg, x_neg_info = load_sentence_feature(corpus_path + '/lstm_title.neg',
                                      window, range, 2*range,  company_neg, w2vec, vocab_set)
     print(x_neg[0][0])
     print(x_neg[0][-1])
     y_neg = [[0, 1]] * len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
-    x_pos, x_pos_info = load_sentence_feature(corpus_path+'/lr_title.pos',
+    x_pos, x_pos_info = load_sentence_feature(corpus_path+'/lstm_title.pos',
                                              window, range, 2*range, company_pos, w2vec, vocab_set)
     y_pos = [[1, 0]]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
