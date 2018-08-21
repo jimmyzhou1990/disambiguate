@@ -9,12 +9,16 @@ class w2vectorFactory(object):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
         self.corpus_path = conf['corpus_path']
         self.stopwords_path = conf['stopwords_path']
-        self.model_path = conf['w2v_model_path']
+        self.model_path = conf['w2v_model_path']+'v1'+'/company_pos.w2vec'
         self.sentence_path = conf["sentence_path"]
         self.sentence_filter_path = conf['sentence_filter_path']
         self.keyword = conf['key_word']
         self.corpus = []
         self.sentences = []
+        self.company_list =[]
+        for company in conf['company_list']:
+            self.company_list.append(company['short_name'])
+            self.company_list.append(company['full_name'])
 
     #加载pos和neg, 取title和content, 合并成一个list
     def load_corpus(self):
@@ -96,12 +100,12 @@ class w2vectorFactory(object):
         elif cmd == 'test':
             worlist = ['电脑', '银行', '上海', '汽车', '人民币',
                        '新闻', '大厦', '股票', '上市', '公路',
-                       '动物园', '地铁', '蓝天', '春节', '公司', '习近平']
+                       '动物园', '地铁', '蓝天', '春节', '公司', '习近平', '长青', '云南白药', '白云机场']
             model = gensim.models.Word2Vec.load(self.model_path)
             vocab_set = set(model.wv.vocab)
-            print(model.most_similar(self.keyword, topn=500))
+            #print(model.most_similar(self.keyword, topn=500))
 
-            for w in worlist:
+            for w in self.company_list:
                 if w in vocab_set:
                     print("topn similarity with [%s]"%w)
                     print(model.most_similar(w, topn=50))

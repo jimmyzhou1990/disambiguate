@@ -56,7 +56,21 @@ class Text_LSTM(object):
         accu = np.mean(y_pred.astype(np.float32))
         return accu
 
-    def count(self, y_output, y_input):
+    def count_neg(self, y_output, y_input):
+        count_neg = 0
+        count_recall = 0
+        total = len(y_input)
+        for y_out, y_in in zip(y_output, y_input):
+            if y_in[0] == 0:
+                count_neg += 1
+                if y_out[0] < 0.5:
+                    count_recall += 1
+        recall = 0
+        if count_neg > 0:
+            recall = count_recall/count_neg
+        return total, count_neg, recall
+
+    def count_pos(self, y_output, y_input):
         count_pos = 0
         count_recall = 0
         total = len(y_input)
@@ -65,9 +79,10 @@ class Text_LSTM(object):
                 count_pos += 1
                 if y_out[0] > 0.5:
                     count_recall += 1
-        #print("total positive sample: %d"%count_pos)
-        #print("recall rate: %.3f"%(count_recall/count_pos))
-        return total, count_pos, count_recall/count_pos
+        recall = 0
+        if count_pos > 0:
+            recall = count_recall/count_pos
+        return total, count_pos, recall
 
     def bad_case(self, y_output, y_input, x_info):
         goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
@@ -76,8 +91,8 @@ class Text_LSTM(object):
             if np.argmax(y_out, 0) == np.argmax(y_in, 0):
                 columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
                 goodcase["company"].append(info[0])
-                goodcase["real"].append("(%.3f, %.3f)"%(y_in[0], y_in[1]))
-                goodcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
+                goodcase["real"].append("%.3f"%(y_in[0]))
+                goodcase["predict"].append("%.3f"%(y_out[0]))
                 goodcase["sentence"].append(info[1])
                 goodcase["feature word list"].append(str(info[2]))
                 continue
@@ -90,14 +105,14 @@ class Text_LSTM(object):
             print('--------------------------------------------------')
             columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
             badcase["company"].append(info[0])
-            badcase["real"].append("(%.3f, %.3f)"%(y_in[0], y_in[1]))
-            badcase["predict"].append("(%.3f, %.3f)"%(y_out[0], y_out[1]))
+            badcase["real"].append("%.3f"%(y_in[0]))
+            badcase["predict"].append("%.3f"%(y_out[0]))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
-        #df_bad = pd.DataFrame(badcase)
-        #df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
-        #df_good = pd.DataFrame(goodcase)
-        #df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
+        df_bad = pd.DataFrame(badcase)
+        df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+        df_good = pd.DataFrame(goodcase)
+        df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
@@ -136,17 +151,20 @@ class Text_LSTM(object):
         ckpt = tf.train.get_checkpoint_state(path)
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)
+        else:
+            raise NotADirectoryError
 
     def predict(self, sess, x_input, y_input, x_info):
         feed_dict = {self.x_input:x_input, self.y_input:y_input}
         y_output = sess.run(self.y_output, feed_dict=feed_dict)
 
         accu = self.accuracy(y_output, y_input)
-        total, pos, recall = self.count(y_output, y_input)
+        total, pos, recall_pos = self.count_pos(y_output, y_input)
+        _, neg, recall_neg = self.count_neg(y_output, y_input)
 
         self.bad_case(y_output, y_input, x_info)
-        print("accu:  %.3f,  recall: %.3f"%(accu, recall))
-        print("total case: %d, positive: %d"%(total, pos))
+        print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f"%(accu, recall_pos, recall_neg))
+        print("total case: %d, positive: %d, negtive: %d"%(total, pos, neg))
 
     def evaluate(self, x_input, y_input, x_info, model_path):
         saver = tf.train.Saver()

@@ -4,6 +4,7 @@ from poa.es import *
 import copy
 import jieba
 import re
+import os
 
 class CorpusFactory(object):
     def __init__(self, conf):
@@ -223,51 +224,56 @@ class CorpusFactory(object):
     def collect_corpus(self, cmd='all'):
         f_p = open(self.corpus_path+'/company.pos', 'w+')
         f_n = open(self.corpus_path+'/company.neg', 'w+')
+        start_date = '2018-08-01'
         for company in self.company_list:
             short_name = company['short_name']
             full_name = company['full_name']
             path = "%s/%s/%s" % (self.corpus_path, short_name, short_name)
 
             if cmd == 'match':
-                docs = self.read_es(full_name)
+                docs = self.read_es(full_name, start_date)
                 self.match(docs)
                 self.remove_others(short_name) #删除关于其他公司的语料
 
             elif cmd == 'filter':
-                data_neg, data_pos = self.filter(path+'_raw.txt')
+                if os.path.exists(path+'_raw.txt'):
+                    data_neg, data_pos = self.filter(path+'_raw.txt')
 
-                f_neg = open(path + '_neg.txt', 'wt')
-                f_pos = open(path + '_pos.txt', 'wt')
+                    f_neg = open(path + '_neg.txt', 'wt')
+                    f_pos = open(path + '_pos.txt', 'wt')
 
-                self.save(data_neg, f_neg)
-                self.save(data_pos, f_pos)
+                    self.save(data_neg, f_neg)
+                    self.save(data_pos, f_pos)
+                    f_neg.close()
+                    f_pos.close()
+                    self.save(data_neg, f_n)
+                    self.save(data_pos, f_p)
 
             elif cmd == 'all':
-                docs = self.read_es(full_name)
+                docs = self.read_es(full_name, start_date)
                 self.match(docs)
                 self.remove_others(short_name)  # 删除关于其他公司的语料
 
-                f_neg = open(path + '_neg.txt', 'wt')
-                f_pos = open(path + '_pos.txt', 'wt')
+                if os.path.exists(path + '_raw.txt'):
+                    f_neg = open(path + '_neg.txt', 'wt')
+                    f_pos = open(path + '_pos.txt', 'wt')
 
-                data_neg, data_pos = self.filter(path + '_raw.txt')
-                self.save(data_neg, f_neg)
-                self.save(data_pos, f_pos)
+                    data_neg, data_pos = self.filter(path + '_raw.txt')
+                    self.save(data_neg, f_neg)
+                    self.save(data_pos, f_pos)
+                    f_neg.close()
+                    f_pos.close()
+                    self.save(data_neg, f_n)
+                    self.save(data_pos, f_p)
 
             else:
                 print("invalid command!")
-
-            f_neg.close()
-            f_pos.close()
-
-            self.save(data_neg, f_n)
-            self.save(data_pos, f_p)
 
         f_n.close()
         f_p.close()
 
     #输入公司全名  输出docs
-    def read_es(self, company_name):
+    def read_es(self, company_name, start_date):
         query = {
             "query": {
                 "bool": {
@@ -296,7 +302,10 @@ class CorpusFactory(object):
         docs = esindex.search_index_scroll(query)
         print("doc_cnt:%d" % (len(docs)))
         # print(docs[0])
-        return docs
+
+        docs_filter = [doc for doc in docs if doc['_source']['publish_date'] >= start_date]
+        print("doc_filter: %d"%len(docs_filter))
+        return docs_filter
 
     def save_docs(self, docs, path):
         for doc in docs:
@@ -308,9 +317,10 @@ class CorpusFactory(object):
         res = os.system(cmd)
         print("%s: %d"%(cmd, res))
 
-        cmd = "cd %s; mkdir -p %s; mv %s_raw.txt ./%s/"%(self.corpus_path, short_name, short_name, short_name)
-        res = os.system(cmd)
-        print("%s: %d"%(cmd, res))
+        if os.path.exists("%s/%s_raw.txt"%(self.corpus_path, short_name)):
+            cmd = "cd %s; mkdir -p %s; mv %s_raw.txt ./%s/"%(self.corpus_path, short_name, short_name, short_name)
+            res = os.system(cmd)
+            print("%s: %d"%(cmd, res))
 
     def match(self,  docs, batch_size=2000):
         d = {'title': '万达商业获得1.6亿美元投资，王健林很愉快', 'content': '', 'filter': set(), 'filter_reason': set(),
