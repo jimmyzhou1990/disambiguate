@@ -9,7 +9,7 @@ class Disambiguate(object):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
         self.stopword_set = set([l.strip() for l in open(conf['stopwords_path'], 'rt')])
         self.version = conf['lstm']['version']
-        self.w2v_model = gensim.models.Word2Vec.load(conf['w2v_model_path']+self.version+'/company_pos.w2vec')
+        self.w2v_model = gensim.models.Word2Vec.load(conf['w2v_model_path']+'v1'+'/company_pos.w2vec')
         self.vocab_set = set(self.w2v_model.wv.vocab)
 
         self.COMPANY_NEG = conf['COMPANY_NEG']
@@ -47,11 +47,16 @@ class Disambiguate(object):
         if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
             return False
 
-        pattern_str = '''[0-9]|[a-z]|[A-Z]|月|年|日|中|】|【|前|后|上午|
+        pattern_str = '^\d{6}$'   #股票代码
+        pattern = re.compile(pattern_str)
+        res = pattern.match(word)
+        if res:
+            return True
+
+        pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
         再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
-        一|以来|称|上海|深圳|广州|重庆|北京|苏州|南京|杭州|武汉|江苏|国际|刚刚|查看|
-        已|今天|近期|有望|一直|继续|昨天|五|预计|丨'''
-        # print("feature filter patterh: %s"%pattern_str)
+        一天|以来|称|刚刚|查看|
+        已|今天|近期|有望|一直|继续|昨天|预计'''
 
         pattern = re.compile(pattern_str)
         res = pattern.search(word)
@@ -59,6 +64,24 @@ class Disambiguate(object):
         if res:
             return False
         return True
+
+    def extend_vector(self, shortname, vec):
+        if shortname == '老百姓':
+            v1 = np.array([0, 0, 0, 1.])
+            vec = np.concatenate((vec, v1))
+        elif shortname == '白云机场':
+            v2 = np.array([0, 0, 1., 0])
+            vec = np.concatenate((vec, v2))
+        elif shortname == '华夏幸福':
+            v3 = np.array([0, 1., 0, 0])
+            vec = np.concatenate((vec, v3))
+        elif shortname == '好想你':
+            v3 = np.array([1., 0, 0, 0])
+            vec = np.concatenate((vec, v3))
+        else:
+            v0 = np.array([0, 0, 0, 0])
+            vec = np.concatenate((vec, v0))
+        return vec
 
     def load_sentence_feature(self, range, seq_length, w2vec, vocab_set):
         x_eval = []
@@ -73,7 +96,7 @@ class Disambiguate(object):
 
                 short_name, text, label = items
                 wordlist = [w for w in list(jieba.cut(text))]
-
+                print("wordlist: %s"%wordlist)
                 try:
                     keyword_position = wordlist.index(short_name)
                 except:
@@ -86,17 +109,19 @@ class Disambiguate(object):
                     if index < keyword_position - range or index > keyword_position + range or w == short_name:
                         continue
                     if w in vocab_set and self.filter_word(w) and not self.is_strange_charactor(w):
+                        #w_extend = self.extend_vector(short_name, w2vec[w])
                         veclist.append(w2vec[w])
+                        #veclist.append(w_extend)
                         feature_wlist.append(w)
                 if len(veclist) < seq_length:  # padding 0
                     padding = [np.zeros(100)] * (seq_length - len(veclist))
                     veclist = veclist + padding
 
-                if len(feature_wlist) >= 5:
+                if len(feature_wlist) >= 2:
                     x_eval.append(veclist)
                     y_eval.append([1, 0] if label == '1' else [0, 1])
                     x_info.append((short_name, "".join(wordlist), feature_wlist))
-
+        print('evaluate corpus length: %d'%len(x_info))
         return np.array(x_eval), np.array(y_eval), x_info
 
     def load_filter7_log(self, range, seq_length, w2vec, vocab_set):

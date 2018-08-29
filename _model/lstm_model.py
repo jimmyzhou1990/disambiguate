@@ -30,7 +30,7 @@ class Text_LSTM(object):
             return length
 
         cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
-        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1.0, output_keep_prob=1.0)
+        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
         outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
                                                  dtype=tf.float32,
                                                  sequence_length = length(input_x),
@@ -95,9 +95,16 @@ class Text_LSTM(object):
                 goodcase["predict"].append("%.3f"%(y_out[0]))
                 goodcase["sentence"].append(info[1])
                 goodcase["feature word list"].append(str(info[2]))
+                #print("good case: [%s]"%info[0])
+                #print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
+                #print("primary sentence:")
+                #print(info[1])
+                #print('feature word list:')
+                #print(info[2])
+                #print('--------------------------------------------------')
                 continue
             print("Bad case: [%s]"%info[0])
-            print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
+            print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out[0]))
             print("primary sentence:")
             print(info[1])
             print('feature word list:')
@@ -109,10 +116,10 @@ class Text_LSTM(object):
             badcase["predict"].append("%.3f"%(y_out[0]))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
-        df_bad = pd.DataFrame(badcase)
-        df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
-        df_good = pd.DataFrame(goodcase)
-        df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
+        #df_bad = pd.DataFrame(badcase)
+        #df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+        #df_good = pd.DataFrame(goodcase)
+        #df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
@@ -125,7 +132,8 @@ class Text_LSTM(object):
                     y_input = y_train[j*batch_size : (j+1)*batch_size]
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
                     _, loss, y_out = sess.run((self.train_op, self.loss, self.y_output), feed_dict=feed_dict)
-                    print('[epoch:%d] [batch_num:%d] loss=%9f' % (i, j, loss))
+                    accu = self.accuracy(y_out, y_input)
+                    print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accu))
 
                 #test
                 feed_dict = {self.x_input: x_test, self.y_input: y_test}

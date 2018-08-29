@@ -98,14 +98,15 @@ class w2vectorFactory(object):
             self.cut()
 
         elif cmd == 'test':
-            worlist = ['电脑', '银行', '上海', '汽车', '人民币',
+            wordlist = ['电脑', '银行', '上海', '汽车', '人民币',
                        '新闻', '大厦', '股票', '上市', '公路',
-                       '动物园', '地铁', '蓝天', '春节', '公司', '习近平', '长青', '云南白药', '白云机场']
+                       '动物园', '地铁', '蓝天', '春节', '公司', '习近平', '长青', '云南白药', '白云机场',
+                       '买不起', 'GDP']
             model = gensim.models.Word2Vec.load(self.model_path)
             vocab_set = set(model.wv.vocab)
             #print(model.most_similar(self.keyword, topn=500))
 
-            for w in self.company_list:
+            for w in wordlist:
                 if w in vocab_set:
                     print("topn similarity with [%s]"%w)
                     print(model.most_similar(w, topn=50))

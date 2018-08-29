@@ -25,7 +25,7 @@ conf = {
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
     'w2v_model_path'     : '/home/op/work/survey/model/w2vec/',
     'test_corpus_path' : '/home/op/work/survey/data/test.txt',
-    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_all.txt',
+    'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
     'COMPANY_POS'      : 'COMPANY_POS',
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
@@ -69,9 +69,9 @@ conf = {
     {
         'model_path'    :  '/home/op/work/survey/model/lstm/',
         'corpus_path'   :  '/home/op/work/survey/corpus/lstm/',
-        'version'       :  'v1',
+        'version'       :  'v3',
         'range'         :  35,
-        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_pos_and_neg.txt',
+        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
     }
 
 }
@@ -91,6 +91,7 @@ elif sys.argv[1] == 'w2vec':
 
 elif sys.argv[1] == 'test':
     print("test model...")
+    conf['lstm']['version'] = sys.argv[2]
     disam = Disambiguate(conf)
     disam.evaluate_models()
 
@@ -101,17 +102,25 @@ elif sys.argv[1] == 'clean':
 
 elif sys.argv[1] == 'lstm':
     if sys.argv[2] == 'v1':
+        conf['lstm']['version'] = 'v1'
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
         lstm = Text_LSTM()
         lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 20, 200, conf['lstm']['model_path']+conf['lstm']['version']+'/')
     elif sys.argv[2] == 'v2':
+        conf['lstm']['version'] = 'v2'
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
         lstm = Text_LSTM()
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 25, 1000, conf['lstm']['model_path'])
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1000, conf['lstm']['model_path']+conf['lstm']['version']+'/')
     elif sys.argv[2] == 'v3':
+        conf['lstm']['version'] = 'v3'
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
         lstm = Text_LSTM()
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 25, 1000, conf['lstm']['model_path'])
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 100, conf['lstm']['model_path']+conf['lstm']['version']+'/')
+    elif sys.argv[2] == 'v4':
+        conf['lstm']['version'] = 'v4'
+        x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
+        lstm = Text_LSTM()
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024, conf['lstm']['model_path']+conf['lstm']['version']+'/')
 
 
 
