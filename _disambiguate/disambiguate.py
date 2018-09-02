@@ -10,7 +10,8 @@ class Disambiguate(object):
         jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
         self.stopword_set = set([l.strip() for l in open(conf['stopwords_path'], 'rt')])
         self.version = conf['lstm']['version']
-        self.w2v_model = gensim.models.Word2Vec.load(conf['w2v_model_path']+'v1'+'/company_pos.w2vec')
+        self.w2vec_version = conf['lstm']['w2vec_version']
+        self.w2v_model = gensim.models.Word2Vec.load(conf['w2v_model_path']+self.w2vec_version+'/company_pos.w2vec')
         self.vocab_set = set(self.w2v_model.wv.vocab)
 
         self.COMPANY_NEG = conf['COMPANY_NEG']
