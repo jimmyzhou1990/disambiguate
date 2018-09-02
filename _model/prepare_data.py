@@ -89,7 +89,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
                 if len(suc_wordlist) >= range:
                     break
             if len(suc_wordlist) < range: #padding 0
-                padding = [np.zeros(100)]*(seq_length-len(suc_wordlist))
+                padding = [np.zeros(100)]*(range-len(suc_wordlist))
                 suc_veclist += padding
 
             #concat
@@ -116,8 +116,8 @@ def get_lstm_dataset(conf):
 
     x_neg, x_neg_info = load_sentence_feature(corpus_path + version+'/lstm_title.neg',
                                      range, 2*range,  company_neg, w2vec, vocab_set)
-    print(x_neg[0][0])
-    print(x_neg[0][-1])
+    print(x_neg[0])
+ 
     y_neg = [[0, 1]] * len(x_neg)
     print("neg sample: %d"%len(x_neg))
 

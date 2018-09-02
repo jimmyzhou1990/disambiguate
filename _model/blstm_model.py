@@ -6,7 +6,7 @@ import pandas as pd
 class BLSTM_WSD(object):
 
     def __init__(self, max_seq_length=30, embedding_size=100, hidden_units=50):
-        range = max_seq_length/2
+        range = int(max_seq_length/2)
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
                                       name='x_input')
@@ -16,15 +16,15 @@ class BLSTM_WSD(object):
                                       name='y_input')
 
         # rnn layer
-        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, -1, range])
+        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, range, -1])
         pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "preceding_lstm")
-        sec_x_input = tf.slice(self.x_input, begin=[0, 0, range], size=[-1, -1, -1])
+        sec_x_input = tf.slice(self.x_input, begin=[0, range, 0], size=[-1, -1, -1])
         sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "succeeding_lstm")
 
         # concat
-        rnn_output = tf.concat([pre_rnn_output, sec_rnn_output], 0)
+        rnn_output = tf.concat([pre_rnn_output, sec_rnn_output], 1)
 
-        self.y_output = self.fully_connect_layer(rnn_output, hidden_units, 2)
+        self.y_output = self.fully_connect_layer(rnn_output, hidden_units*2, 2)
         self.loss = self.loss_function(self.y_input, self.y_output)
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
@@ -37,7 +37,7 @@ class BLSTM_WSD(object):
             length = tf.cast(length, tf.int32)
             return length
 
-        with tf.name_scope(name):
+        with tf.variable_scope(name):
             cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
             cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
             outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
