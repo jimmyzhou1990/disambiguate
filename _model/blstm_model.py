@@ -16,13 +16,10 @@ class BLSTM_WSD(object):
                                       name='y_input')
 
         # rnn layer
-        with tf.name_scope("preceding_lstm"):
-            pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, -1, range])
-            pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units)
-
-        with tf.name_scope("succeeding_lstm"):
-            sec_x_input = tf.slice(self.x_input, begin=[0, 0, range], size=[-1, -1, -1])
-            sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units)
+        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, -1, range])
+        pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "preceding_lstm")
+        sec_x_input = tf.slice(self.x_input, begin=[0, 0, range], size=[-1, -1, -1])
+        sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "succeeding_lstm")
 
         # concat
         rnn_output = tf.concat([pre_rnn_output, sec_rnn_output], 0)
@@ -33,21 +30,22 @@ class BLSTM_WSD(object):
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
 
-    def rnn_layer(self, input_x, hidden_units):
+    def rnn_layer(self, input_x, hidden_units, name):
         def length(sequence):
             used = tf.sign(tf.reduce_max(tf.abs(sequence), 2))
             length = tf.reduce_sum(used, 1)
             length = tf.cast(length, tf.int32)
             return length
 
-        cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
-        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
-        outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
-                                                 dtype=tf.float32,
-                                                 sequence_length = length(input_x),
-                                                 inputs=input_x)
-        output = last_states.h
-        return output  #返回最后一个状态  LSTMStateTuple.h
+        with tf.name_scope(name):
+            cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
+            cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
+            outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
+                                                     dtype=tf.float32,
+                                                     sequence_length = length(input_x),
+                                                     inputs=input_x)
+            output = last_states.h
+            return output  #返回最后一个状态  LSTMStateTuple.h
 
     def fully_connect_layer(self, input_tensor, hidden_units, class_num):
         self.w = tf.Variable(tf.random_normal(shape=[hidden_units, class_num], stddev=0.01),
