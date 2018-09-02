@@ -2,6 +2,7 @@ import gensim
 import jieba
 import numpy as np
 from _model.lstm_model import Text_LSTM
+from _model.blstm_model import BLSTM_WSD
 import re
 
 class Disambiguate(object):
@@ -42,28 +43,32 @@ class Disambiguate(object):
     def is_company_name(self, word):
         return word in self.company_list
 
-    def filter_word(self, word):
-        import re
+    def filter_word(self, word, vocab):
         if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
-            return False
+            return ''
 
-        pattern_str = '^\d{6}$'   #股票代码
+        if word not in vocab:
+            return 'UnknownWord'
+
+        pattern_str = '^\d{6}$'  # 股票代码
         pattern = re.compile(pattern_str)
         res = pattern.match(word)
         if res:
-            return True
+            return word
 
-        pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
-        再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
-        一天|以来|称|刚刚|查看|
-        已|今天|近期|有望|一直|继续|昨天|预计'''
+        # pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
+        # 再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
+        # 一天|以来|称|刚刚|查看|
+        # 已|今天|近期|有望|一直|继续|昨天|预计'''
+        pattern_str = '\d+\.*\d*%*'
 
         pattern = re.compile(pattern_str)
-        res = pattern.search(word)
+        res = pattern.match(word)
 
         if res:
-            return False
-        return True
+            return '8'
+
+        return word
 
     def extend_vector(self, shortname, vec):
         if shortname == '老百姓':
@@ -103,24 +108,42 @@ class Disambiguate(object):
                     print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
                     continue
 
-                veclist = []
-                feature_wlist = []
-                for index, w in enumerate(wordlist):
-                    if index < keyword_position - range or index > keyword_position + range or w == short_name:
-                        continue
-                    if w in vocab_set and self.filter_word(w) and not self.is_strange_charactor(w):
-                        #w_extend = self.extend_vector(short_name, w2vec[w])
-                        veclist.append(w2vec[w])
-                        #veclist.append(w_extend)
-                        feature_wlist.append(w)
-                if len(veclist) < seq_length:  # padding 0
-                    padding = [np.zeros(100)] * (seq_length - len(veclist))
-                    veclist = veclist + padding
+                # preceding
+                pre_veclist = []
+                pre_wordlist = []
+                for w in wordlist[keyword_position:0:-1]:
+                    w = self.filter_word(w, vocab_set)
+                    if w:
+                        pre_wordlist.insert(0, w)
+                        pre_veclist.insert(0, w2vec[w])
+                    if len(pre_wordlist) >= range:
+                        break
+                if len(pre_wordlist) < range:  # padding 0
+                    padding = [np.zeros(100)] * (range - len(pre_wordlist))
+                    pre_veclist += padding
 
-                if len(feature_wlist) >= 2:
-                    x_eval.append(veclist)
-                    y_eval.append([1, 0] if label == '1' else [0, 1])
-                    x_info.append((short_name, "".join(wordlist), feature_wlist))
+                # succeeding
+                suc_veclist = []
+                suc_wordlist = []
+                for w in wordlist[keyword_position:]:
+                    w = self.filter_word(w, vocab_set)
+                    if w:
+                        suc_wordlist.insert(0, w)
+                        suc_veclist.insert(0, w2vec[w])
+                    if len(suc_wordlist) >= range:
+                        break
+                if len(suc_wordlist) < range:  # padding 0
+                    padding = [np.zeros(100)] * (range - len(suc_wordlist))
+                    suc_veclist += padding
+
+                # concat
+                veclist = pre_veclist + suc_veclist
+                info = (short_name, "".join(wordlist), pre_wordlist + suc_wordlist)
+
+                x_eval.append(veclist)
+                y_eval.append([1, 0] if label == '1' else [0, 1])
+                x_info.append(info)
+
         print('evaluate corpus length: %d'%len(x_info))
         return np.array(x_eval), np.array(y_eval), x_info
 
@@ -170,7 +193,7 @@ class Disambiguate(object):
         #print(y_eval[0])
         #print(type(y_eval[0]))
 
-        lstm = Text_LSTM()
+        lstm = BLSTM_WSD()
         lstm.evaluate(x_eval, y_eval, x_info, self.lstm_model_path)
 
     def evaluate_models(self):
