@@ -94,7 +94,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
 
             #concat
             veclist = pre_veclist + suc_veclist
-            info = (shortname, "".join(wordlist), pre_veclist+suc_wordlist)
+            info = (shortname, "".join(wordlist), pre_wordlist+suc_wordlist)
 
             x_set.append(veclist)
             x_info.append(info)
