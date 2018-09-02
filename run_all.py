@@ -70,8 +70,9 @@ conf = {
         'model_path'    :  '/home/op/work/survey/model/lstm/',
         'corpus_path'   :  '/home/op/work/survey/corpus/lstm/',
         'version'       :  'v3',
-        'range'         :  35,
+        'range'         :  15,
         'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+        'w2vec_version'    :  'v2',
     }
 
 }
@@ -120,8 +121,11 @@ elif sys.argv[1] == 'lstm':
         conf['lstm']['version'] = 'v4'
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
         lstm = Text_LSTM()
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024, conf['lstm']['model_path']+conf['lstm']['version']+'/')
-
-
-
-
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info,
+                            22, 1024, conf['lstm']['model_path']+conf['lstm']['version']+'/')
+    elif sys.argv[2] == 'v5':
+        conf['lstm']['version'] = 'v5'
+        x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
+        lstm = Text_LSTM()
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024,
+                            conf['lstm']['model_path'] + conf['lstm']['version'] + '/')

@@ -1,30 +1,36 @@
 import numpy as np
 import jieba
 import gensim
+import re
 
 
-def filter_word(word):
-    import re
+def filter_word(word, vocab):
+
     if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
-        return False
+        return ''
+
+    if word not in vocab:
+        return 'UnknownWord'
 
     pattern_str = '^\d{6}$'   #股票代码
     pattern = re.compile(pattern_str)
     res = pattern.match(word)
     if res:
-        return True
+        return word
 
-    pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
-    再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
-    一天|以来|称|刚刚|查看|
-    已|今天|近期|有望|一直|继续|昨天|预计'''
+    # pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
+    # 再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
+    # 一天|以来|称|刚刚|查看|
+    # 已|今天|近期|有望|一直|继续|昨天|预计'''
+    pattern_str = '\d+\.*\d*%*'
 
     pattern = re.compile(pattern_str)
-    res = pattern.search(word)
+    res = pattern.match(word)
 
     if res:
-        return False
-    return True
+        return '8'
+
+    return word
 
 def extend_vector(shortname, vec):
     if shortname == '老百姓':
@@ -44,6 +50,7 @@ def extend_vector(shortname, vec):
         vec = np.concatenate((vec, v0))
     return vec
 
+#preceding and succeeding
 def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab_set):
     x_set = []
     x_info = []
@@ -53,35 +60,53 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
             wordlist = items[1].split(" ")
             shortname = items[0]
 
-            if  keyword not in wordlist:
+            if keyword not in wordlist:
                 continue
             keyword_position = wordlist.index(keyword)
 
-            veclist = []
-            feature_wlist = []
-            for index, w in enumerate(wordlist):
-                if index < keyword_position - range or index > keyword_position + range:
-                    continue
+            # preceding
+            pre_veclist = []
+            pre_wordlist = []
+            for w in wordlist[keyword_position:0:-1]:
+                w = filter_word(w, vocab_set)
+                if w:
+                    pre_wordlist.insert(0, w)
+                    pre_veclist.insert(0, w2vec[w])
+                if len(pre_wordlist) >= range:
+                    break
+            if len(pre_wordlist) < range: # padding 0
+                padding = [np.zeros(100)] * (range - len(pre_wordlist))
+                pre_veclist += padding
 
-                if w in vocab_set and filter_word(w):
-                    #w_extend = extend_vector(shortname, w2vec[w])
-                    veclist.append(w2vec[w])
-                    #veclist.append(w_extend)
-                    feature_wlist.append(w)
-            if len(veclist) < seq_length:   #padding 0
-                padding = [np.zeros(100)]*(seq_length-len(veclist))
-                veclist = veclist + padding
+            #succeeding
+            suc_veclist = []
+            suc_wordlist = []
+            for w in wordlist[keyword_position:]:
+                w = filter_word(w, vocab_set)
+                if w:
+                    suc_wordlist.insert(0, w)
+                    suc_veclist.insert(0, w2vec[w])
+                if len(suc_wordlist) >= range:
+                    break
+            if len(suc_wordlist) < range: #padding 0
+                padding = [np.zeros(100)]*(seq_length-len(suc_wordlist))
+                suc_veclist += padding
 
-            if len(feature_wlist) >= 2:
-                x_set.append(veclist)
-                x_info.append((shortname, "".join(wordlist), feature_wlist))
+            #concat
+            veclist = pre_veclist + suc_veclist
+            info = (shortname, "".join(wordlist), pre_veclist+suc_wordlist)
+
+            x_set.append(veclist)
+            x_info.append(info)
+
     return x_set, x_info
 
 
 def get_lstm_dataset(conf):
     version = conf['lstm']['version']
     jieba.load_userdict(conf['user_dict'])  # 加载自定义词典
-    w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path']+'v1'+'/company_pos.w2vec')
+    w2vec_version = conf['lstm']['w2vec_version']
+    w2vec = gensim.models.Word2Vec.load(conf['w2v_model_path']+w2vec_version+'/company_pos.w2vec')
     vocab_set = set(w2vec.wv.vocab)
 
     range = int(conf['lstm']['range'])
@@ -125,9 +150,6 @@ def get_lstm_dataset(conf):
     print(y_train[0:5])
     print(x_train.shape)
     return x_train, y_train, x_test, y_test, x_test_info
-
-
-
 
 
 
