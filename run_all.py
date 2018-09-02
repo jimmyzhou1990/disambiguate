@@ -4,6 +4,7 @@ from _corpus.clean_corpus import CorpusCleaner
 from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
 from _model.lstm_model import Text_LSTM
+from _model.blstm_model import BLSTM_WSD
 from _model.prepare_data import  get_lstm_dataset
 
 def load_config(conf):
@@ -126,6 +127,6 @@ elif sys.argv[1] == 'lstm':
     elif sys.argv[2] == 'v5':
         conf['lstm']['version'] = 'v5'
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
-        lstm = Text_LSTM()
+        lstm = BLSTM_WSD()
         lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/')
