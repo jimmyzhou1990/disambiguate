@@ -30,7 +30,7 @@ class Text_LSTM(object):
             return length
 
         cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
-        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
+        cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, output_keep_prob=0.5)
         outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
                                                  dtype=tf.float32,
                                                  sequence_length = length(input_x),
