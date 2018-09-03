@@ -129,6 +129,6 @@ elif sys.argv[1] == 'lstm':
         range = conf['lstm']['range']
         x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
         lstm = BLSTM_WSD(max_seq_length=range*2, word_keep_prob=1.0, w2vec=w2vec)
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024,
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 128,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
                            )
