@@ -147,7 +147,7 @@ def get_lstm_dataset(conf):
     print("training set 1-5:")
     print(y_train[0:5])
     print(x_train.shape)
-    return x_train, y_train, x_test, y_test, x_test_info
+    return x_train, y_train, x_test, y_test, x_test_info, w2vec
 
 
 

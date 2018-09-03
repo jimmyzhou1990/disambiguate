@@ -2,11 +2,16 @@ import tensorflow as tf
 from tensorflow.contrib import rnn
 import numpy as np
 import pandas as pd
+import random
 
 class BLSTM_WSD(object):
 
-    def __init__(self, max_seq_length=30, embedding_size=100, hidden_units=50):
-        range = int(max_seq_length/2)
+    def __init__(self, max_seq_length=30, embedding_size=100, hidden_units=50, word_keep_prob=1.0, w2vec=None):
+        self.range = int(max_seq_length/2)
+        self.w2vec = w2vec
+        self.drop_vec = w2vec['UnknownWord']
+        self.word_keep_prob = word_keep_prob
+
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
                                       name='x_input')
@@ -16,9 +21,9 @@ class BLSTM_WSD(object):
                                       name='y_input')
 
         # rnn layer
-        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, range, -1])
+        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1])
         pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "preceding_lstm")
-        sec_x_input = tf.slice(self.x_input, begin=[0, range, 0], size=[-1, -1, -1])
+        sec_x_input = tf.slice(self.x_input, begin=[0, self.range, 0], size=[-1, -1, -1])
         sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "succeeding_lstm")
 
         # concat
@@ -29,6 +34,23 @@ class BLSTM_WSD(object):
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
+
+    def drop_word(self, x_input):
+        def seq_length(seq):
+            used = np.sign(np.max(np.abs(seq), 2))
+            length = np.sum(used, 1)
+            length = np.cast(length, np.int32)
+            return length
+
+        word_keep_prob = self.word_keep_prob
+        for index, seq_len in enumerate(seq_length(x_input)):
+            drop_num = (int)((1 - word_keep_prob)*seq_len)
+            if drop_num == 0:
+                return x_input
+            drop_indexs = random.sample(range(seq_len), drop_num)
+            for i in drop_indexs:
+                x_input[index][i] = self.drop_vec
+            return x_input
 
     def rnn_layer(self, input_x, hidden_units, name):
         def length(sequence):
@@ -138,6 +160,7 @@ class BLSTM_WSD(object):
             for i in range(epoch):
                 for j in range(batch_num):
                     x_input = x_train[j*batch_size : (j+1)*batch_size]
+                    x_input = self.drop_word(x_input)
                     y_input = y_train[j*batch_size : (j+1)*batch_size]
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
                     _, loss, y_out = sess.run((self.train_op, self.loss, self.y_output), feed_dict=feed_dict)
