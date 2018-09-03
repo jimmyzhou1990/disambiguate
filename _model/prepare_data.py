@@ -124,7 +124,7 @@ def get_lstm_dataset(conf):
     print("neg sample: %d"%len(x_neg))
 
     x_pos, x_pos_info = load_sentence_feature(corpus_path+ version +'/lstm_title.pos',
-                                             range, 2*range, company_pos, w2vec, vocab_set)
+                                             range, 2*range, company_pos, w2vec, vocab_set, stopword_set)
     y_pos = [[1, 0]]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
 
