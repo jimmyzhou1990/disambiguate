@@ -71,7 +71,7 @@ conf = {
         'model_path'    :  '/home/op/work/survey/model/lstm/',
         'corpus_path'   :  '/home/op/work/survey/corpus/lstm/',
         'version'       :  'v3',
-        'range'         :  15,
+        'range'         :  30,
         'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
         'w2vec_version'    :  'v2',
     }
@@ -126,7 +126,8 @@ elif sys.argv[1] == 'lstm':
                             22, 1024, conf['lstm']['model_path']+conf['lstm']['version']+'/')
     elif sys.argv[2] == 'v5':
         conf['lstm']['version'] = 'v5'
+        range = conf['lstm']['range']
         x_train, y_train, x_test, y_test, x_test_info = get_lstm_dataset(conf)
-        lstm = BLSTM_WSD()
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 1024,
+        lstm = BLSTM_WSD(max_seq_length=range*2)
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 128,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/')

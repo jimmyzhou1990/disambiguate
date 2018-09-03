@@ -5,30 +5,28 @@ import re
 
 
 def filter_word(word, vocab):
-
     if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
         return ''
-
-    if word not in vocab:
-        return 'UnknownWord'
 
     pattern_str = '^\d{6}$'   #股票代码
     pattern = re.compile(pattern_str)
     res = pattern.match(word)
     if res:
-        return word
+        pass
 
     # pattern_str = '''[0-9]|[a-z]|[A-Z]|^[年月日中]$|】|【|前|后|上午|
     # 再|原|一个|不断|时间|时|记者|获悉|.*网|报道|―|全国|相关|新|正式|全|本报讯|
     # 一天|以来|称|刚刚|查看|
     # 已|今天|近期|有望|一直|继续|昨天|预计'''
-    pattern_str = '\d+\.*\d*%*'
+    else:
+        pattern_str = '\d+\.*\d*%*'
+        pattern = re.compile(pattern_str)
+        res = pattern.match(word)
+        if res:
+            return '8'
 
-    pattern = re.compile(pattern_str)
-    res = pattern.match(word)
-
-    if res:
-        return '8'
+    if word not in vocab:
+        word = 'UnknownWord'
 
     return word
 
@@ -67,7 +65,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
             # preceding
             pre_veclist = []
             pre_wordlist = []
-            for w in wordlist[keyword_position:0:-1]:
+            for w in wordlist[keyword_position::-1]:
                 w = filter_word(w, vocab_set)
                 if w:
                     pre_wordlist.insert(0, w)
