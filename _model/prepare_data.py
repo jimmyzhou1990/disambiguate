@@ -4,9 +4,10 @@ import gensim
 import re
 
 
-def filter_word(word, vocab):
-    if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG':
+def filter_word(word, vocab, stopword_set):
+    if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG' or word in stopword_set:
         return ''
+
 
     pattern_str = '^\d{6}$'   #股票代码
     pattern = re.compile(pattern_str)
@@ -49,7 +50,7 @@ def extend_vector(shortname, vec):
     return vec
 
 #preceding and succeeding
-def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab_set):
+def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab_set, stopword_set):
     x_set = []
     x_info = []
     with open(corpus_path, 'r') as f:
@@ -66,7 +67,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
             pre_veclist = []
             pre_wordlist = []
             for w in wordlist[keyword_position::-1]:
-                w = filter_word(w, vocab_set)
+                w = filter_word(w, vocab_set, stopword_set)
                 if w:
                     pre_wordlist.insert(0, w)
                     pre_veclist.insert(0, w2vec[w])
@@ -80,7 +81,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
             suc_veclist = []
             suc_wordlist = []
             for w in wordlist[keyword_position:]:
-                w = filter_word(w, vocab_set)
+                w = filter_word(w, vocab_set, stopword_set)
                 if w:
                     suc_wordlist.insert(0, w)
                     suc_veclist.insert(0, w2vec[w])
@@ -111,9 +112,12 @@ def get_lstm_dataset(conf):
     corpus_path = conf['lstm']['corpus_path']
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
+    stopwords_path = conf['stopwords_path']
+    stopword_set = set([l.strip() for l in open(stopwords_path, 'rt')])
+
 
     x_neg, x_neg_info = load_sentence_feature(corpus_path + version+'/lstm_title.neg',
-                                     range, 2*range,  company_neg, w2vec, vocab_set)
+                                     range, 2*range,  company_neg, w2vec, vocab_set, stopword_set)
     print(x_neg[0])
  
     y_neg = [[0, 1]] * len(x_neg)

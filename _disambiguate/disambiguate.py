@@ -45,7 +45,7 @@ class Disambiguate(object):
         return word in self.company_list
 
     def filter_word(self, word, vocab, short_name):
-        if word == short_name or word == ' ':
+        if word == short_name or word == ' ' or word in self.stopword_set:
             return ''
 
         pattern_str = '^\d{6}$'  # 股票代码
