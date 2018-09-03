@@ -193,7 +193,7 @@ class Disambiguate(object):
         #print(y_eval[0])
         #print(type(y_eval[0]))
 
-        lstm = BLSTM_WSD(max_seq_length=self.range*2)
+        lstm = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model)
         lstm.evaluate(x_eval, y_eval, x_info, self.lstm_model_path)
 
     def evaluate_models(self):

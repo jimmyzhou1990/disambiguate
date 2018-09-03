@@ -38,8 +38,7 @@ class BLSTM_WSD(object):
     def drop_word(self, x_input):
         def seq_length(seq):
             used = np.sign(np.max(np.abs(seq), 2))
-            length = np.sum(used, 1)
-            length = np.cast(length, np.int32)
+            length = np.sum(used, 1, dtype=np.int32)
             return length
 
         word_keep_prob = self.word_keep_prob
