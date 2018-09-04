@@ -6,11 +6,12 @@ import random
 
 class BLSTM_WSD(object):
 
-    def __init__(self, max_seq_length=30, embedding_size=100, hidden_units=50, word_keep_prob=1.0, w2vec=None):
+    def __init__(self, max_seq_length=30, embedding_size=100, hidden_units=50, word_keep_prob=1.0, w2vec=None, model_name='model'):
         self.range = int(max_seq_length/2)
         self.w2vec = w2vec
         self.drop_vec = w2vec['UnknownWord']
         self.word_keep_prob = word_keep_prob
+        self.model_name = model_name
 
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
@@ -207,7 +208,7 @@ class BLSTM_WSD(object):
         writer.close()
 
     def save(self, sess, saver, path, step):
-        saver.save(sess, path + 'model.ckpt', step)
+        saver.save(sess, path + self.model_name + '/' + self.model_name + '.ckpt', step)
 
     def load(self, sess, saver, path):
         ckpt = tf.train.get_checkpoint_state(path)
@@ -216,20 +217,51 @@ class BLSTM_WSD(object):
         else:
             raise NotADirectoryError
 
+    def count_neg(self, y_output, y_input):
+        count_neg = 0
+        count_recall = 0
+        total = len(y_input)
+        for y_out, y_in in zip(y_output, y_input):
+            if y_in[0] == 0:
+                count_neg += 1
+                if y_out[0] < self.gate:
+                    count_recall += 1
+        recall = 0
+        if count_neg > 0:
+            recall = count_recall / count_neg
+        return total, count_neg, count_recall, recall
+
+    def count_pos(self, y_output, y_input):
+        count_pos = 0
+        count_recall = 0
+        total = len(y_input)
+        for y_out, y_in in zip(y_output, y_input):
+            if y_in[0] == 1:
+                count_pos += 1
+                if y_out[0] >= self.gate:
+                    count_recall += 1
+        recall = 0
+        if count_pos > 0:
+            recall = count_recall / count_pos
+        return total, count_pos, count_recall, recall
+
     def predict(self, sess, x_input, y_input, x_info):
-        feed_dict = {self.x_input:x_input, self.y_input:y_input}
+        feed_dict = {self.x_input: x_input, self.y_input: y_input}
         y_output = sess.run(self.y_output, feed_dict=feed_dict)
 
         accu = self.accuracy(y_output, y_input)
-        total, pos, recall_pos = self.count_pos(y_output, y_input)
-        _, neg, recall_neg = self.count_neg(y_output, y_input)
+        total, pos, rpos, recall_pos = self.count_pos(y_output, y_input)
+        _, neg, rneg, recall_neg = self.count_neg(y_output, y_input)
 
-        self.bad_case(y_output, y_input, x_info, to_excel=True)
-        print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f"%(accu, recall_pos, recall_neg))
-        print("total case: %d, positive: %d, negtive: %d"%(total, pos, neg))
+        self.bad_case(y_output, y_input, x_info)
+        print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f" % (accu, recall_pos, recall_neg))
+        print("total case: %d, positive: %d, negtive: %d" % (total, pos, neg))
+        return pos, rpos, neg, rneg
 
-    def evaluate(self, x_input, y_input, x_info, model_path):
+    def evaluate(self, x_input, y_input, x_info, model_path, model_name):
+        self.model_name = model_name
         saver = tf.train.Saver()
         with tf.Session() as sess:
             self.load(sess, saver, model_path)
-            self.predict(sess, x_input, y_input, x_info)
+            pos, rpos, neg, rneg = self.predict(sess, x_input, y_input, x_info)
+            return pos, rpos, neg, rneg

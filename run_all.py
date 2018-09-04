@@ -74,6 +74,7 @@ conf = {
         'range'         :  30,
         'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
         'w2vec_version'    :  'v2',
+        'domain'           :  'port',
     }
 
 }
@@ -132,3 +133,17 @@ elif sys.argv[1] == 'lstm':
         lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 128,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
                            )
+
+    elif sys.argv[2] == 'v6':  #blstm 分行业训练
+        if len(sys.argv) != 4:
+            print("argv length: %d" % len(sys.argv))
+            print("cmd   lstm    v3     airport|medicine|port|estate|highway")
+            exit(-1)
+        conf['lstm']['version'] = 'v5'
+        conf['lstm']['domain'] = sys.argv[3]
+        range = conf['lstm']['range']
+        x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
+        lstm = BLSTM_WSD(max_seq_length=range * 2, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'])
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 22, 128,
+                            conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
+                            )

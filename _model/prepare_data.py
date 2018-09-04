@@ -8,7 +8,6 @@ def filter_word(word, vocab, stopword_set):
     if word == 'COMPANY_NAME' or word == 'COMPANY_POS' or word == 'COMPANY_NEG' or word in stopword_set:
         return ''
 
-
     pattern_str = '^\d{6}$'   #股票代码
     pattern = re.compile(pattern_str)
     res = pattern.match(word)

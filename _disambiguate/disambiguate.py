@@ -4,6 +4,9 @@ import numpy as np
 from _model.lstm_model import Text_LSTM
 from _model.blstm_model import BLSTM_WSD
 import re
+import copy
+import pandas as pd
+import os
 
 class Disambiguate(object):
     def __init__(self, conf):
@@ -26,6 +29,101 @@ class Disambiguate(object):
             self.company_list.append(company['short_name'])
             self.company_list.append(company['full_name'])
         print(self.company_list)
+
+        self.domain = ['airport', 'estate', 'food', 'gaoxin', 'highway', 'industry', 'medicine', 'mix', 'port',
+                       'tourism', 'yunnanbaiyao']
+        self.models = {}
+
+    def load_models(self):
+        m = {
+            'model' : None,
+            'feed'  : {
+                'x_eval' : [],
+                'y_eval' : [],
+                'x_info' : [],
+             },
+        }
+        for d in self.domain:
+            mx = copy.deepcopy(m)
+            self.models[d] = mx
+        self.lstm_model = Text_LSTM()
+
+    def run_models(self):
+        p = 0
+        rp = 0
+        n = 0
+        rn = 0
+        for d in self.domain:
+            lstm = self.lstm_model
+            x_eval = np.array(self.models[d]['feed']['x_eval'])
+            y_eval = np.array(self.models[d]['feed']['y_eval'])
+            x_info = self.models[d]['feed']['x_info']
+            if len(x_eval) == 0:
+                continue
+            path = self.lstm_model_path+'/'+d
+            print('load lstm model: %s'%path)
+            pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, path, d)
+            p += pos
+            rp += rpos
+            n += neg
+            rn += rneg
+        total = p + n
+        print("positive: %d, negtive: %d, recall_pos: %.3f, recall_neg: %.3f, accuracy: %.3f"%(p, n, rp/p, rn/n, (rn+rp)/total))
+
+    def collect_xlsx(self):
+        # /home/op/work/survey/log/lstm_eval_badcase_%s.xlsx
+        columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
+        bad_df = {}
+        good_df = {}
+        for c in columns:
+            bad_df[c] = []
+            good_df[c] = []
+
+        for d in self.domain:
+            path = '/home/op/work/survey/log/lstm_eval_badcase_%s.xlsx' % d
+            if os.path.exists(path):
+                df = pd.read_excel(path)
+                for c in columns:
+                    bad_df[c] += list(df[c])
+                os.remove(path)
+            path = '/home/op/work/survey/log/lstm_eval_goodcase_%s.xlsx' % d
+            if os.path.exists(path):
+                df = pd.read_excel(path)
+                for c in columns:
+                    good_df[c] += list(df[c])
+                os.remove(path)
+
+        bad_df = pd.DataFrame(bad_df)
+        good_df = pd.DataFrame(good_df)
+        bad_df.to_excel('/home/op/work/survey/log/lstm_eval_badcase_domain.xlsx', index=False, columns=columns)
+        good_df.to_excel('/home/op/work/survey/log/lstm_eval_goodcase_domain.xlsx', index=False, columns=columns)
+
+    def get_domain(self, short_name):
+        if self.method == 'mix':
+            return 'mix'
+
+        if re.match('.*机场', short_name):
+            return 'airport'
+        elif re.match('.*[港湾]', short_name):
+            return 'port'
+        elif re.match('.*高速|.*徐高', short_name):
+            return 'highway'
+        elif re.match('老百姓', short_name):
+            return 'medicine'
+        elif re.match('好想你', short_name):
+            return 'mix'
+        elif re.match('.*旅游', short_name):
+            return 'tourism'
+        elif re.match('.*高新', short_name):
+            return 'gaoxin'
+        elif re.match('星星|中国盐业|北方工业|电科院', short_name):
+            return 'industry'
+        elif re.match('云南白药', short_name):
+            return 'yunnanbaiyao'
+        elif re.match('葛洲坝|华夏幸福|陆家嘴|天地源|阳光城|金融街|华侨城|花样年|新华联|浦东金桥', short_name):
+            return 'estate'
+        else:
+            return 'mix'
 
     def is_strange_charactor(self, word):
         strange_charactor = ['\u3000', '\u200b', '\u2002', '\u2003', '\u200c', '\u202a', '\u202c',
@@ -108,6 +206,7 @@ class Disambiguate(object):
                     print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
                     continue
 
+                domain = self.get_domain(short_name)
                 # preceding
                 pre_veclist = []
                 pre_wordlist = []
@@ -143,6 +242,10 @@ class Disambiguate(object):
                 x_eval.append(veclist)
                 y_eval.append([1, 0] if label == '1' else [0, 1])
                 x_info.append(info)
+
+                self.models[domain]['feed']['x_eval'].append(veclist)
+                self.models[domain]['feed']['y_eval'].append([1, 0] if label == '1' else [0, 1])
+                self.models[domain]['feed']['x_info'].append(info)
 
         print('evaluate corpus length: %d'%len(x_info))
         return np.array(x_eval), np.array(y_eval), x_info
@@ -182,18 +285,15 @@ class Disambiguate(object):
         return np.array(x_eval), np.array(y_eval), x_info
 
     def evaluate_lstm_model(self):
-        #x_eval, y_eval, x_info = self.load_filter7_log(self.range, 2*self.range,
-        #                                                    self.w2v_model, self.vocab_set)
+        self.load_models()
 
         x_eval, y_eval, x_info = self.load_sentence_feature(self.range, 2*self.range,
                                                              self.w2v_model, self.vocab_set)
 
-        #print(x_eval[0])
-        #print(type(x_eval))
-        #print(y_eval[0])
-        #print(type(y_eval[0]))
+        self.run_models()
+        self.collect_xlsx()
 
-        lstm = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model)
+        lstm = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=1.0, w2vec=self.w2v_model)
         lstm.evaluate(x_eval, y_eval, x_info, self.lstm_model_path)
 
     def evaluate_models(self):
