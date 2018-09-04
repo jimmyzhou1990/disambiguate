@@ -126,6 +126,7 @@ class Text_LSTM(object):
         batch_num = (int)(train_sample_num/batch_size)
         with tf.Session() as sess:
             tf.global_variables_initializer().run()
+            writer = tf.summary.FileWriter(path, sess.graph)
             for i in range(epoch):
                 for j in range(batch_num):
                     x_input = x_train[j*batch_size : (j+1)*batch_size]
@@ -151,6 +152,7 @@ class Text_LSTM(object):
 
             saver = tf.train.Saver()
             self.save(sess, saver, path, 0)
+        writer.close()
 
     def save(self, sess, saver, path, step):
         saver.save(sess, path + 'model.ckpt', step)

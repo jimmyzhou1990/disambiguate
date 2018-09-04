@@ -21,19 +21,29 @@ class BLSTM_WSD(object):
                                       name='y_input')
 
         # rnn layer
-        pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1])
-        pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "preceding_lstm")
-        sec_x_input = tf.slice(self.x_input, begin=[0, self.range, 0], size=[-1, -1, -1])
-        sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "succeeding_lstm")
+        with tf.name_scope("slice"):
+            pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1], name='slice_for_preceding')
+            sec_x_input = tf.slice(self.x_input, begin=[0, self.range, 0], size=[-1, -1, -1], name='slice_for_secceding')
+        pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "pre_lstm")
+        sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "suc_lstm")
 
         # concat
-        rnn_output = tf.concat([pre_rnn_output, sec_rnn_output], 1)
-
-        self.y_output = self.fully_connect_layer(rnn_output, hidden_units*2, 2)
-        self.loss = self.loss_function(self.y_input, self.y_output)
+        with tf.name_scope("concat_rnn"):
+            rnn_concat = tf.concat([pre_rnn_output, sec_rnn_output], 1)
+        
+        rnn_hidden_out = hidden_units*2
+        with tf.name_scope("hidden_layer"):
+            rnn_output = self.rnn_output_hidden_layer(rnn_concat, rnn_hidden_out)
+        
+        with tf.name_scope("soft_max"):
+            self.y_output = self.softmax_layer(rnn_output, rnn_hidden_out, 2)
+        
+        with tf.name_scope("loss_fun"):
+            self.loss = self.loss_function(self.y_input, self.y_output)
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
-        self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
+        with tf.name_scope("Optimizer"):
+            self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
 
     def drop_word(self, x_input):
         def seq_length(seq):
@@ -50,6 +60,16 @@ class BLSTM_WSD(object):
             for i in drop_indexs:
                 x_input[index][i] = self.drop_vec
             return x_input
+    
+    def rnn_output_hidden_layer(self, input_x, out_size):
+        in_size = input_x.get_shape().as_list()[1]
+        self.w = tf.Variable(tf.random_normal(shape=[in_size, out_size], stddev=0.01),
+                             name="weight")
+        self.b = tf.Variable(tf.zeros(shape=[out_size]),
+                                      name='bias')
+        y = tf.matmul(input_x, self.w)+self.b
+        return y
+
 
     def rnn_layer(self, input_x, hidden_units, name):
         def length(sequence):
@@ -68,7 +88,7 @@ class BLSTM_WSD(object):
             output = last_states.h
             return output  #返回最后一个状态  LSTMStateTuple.h
 
-    def fully_connect_layer(self, input_tensor, hidden_units, class_num):
+    def softmax_layer(self, input_tensor, hidden_units, class_num):
         self.w = tf.Variable(tf.random_normal(shape=[hidden_units, class_num], stddev=0.01),
                              name="weight")
         self.b = tf.Variable(tf.zeros(shape=[class_num]),
@@ -114,7 +134,7 @@ class BLSTM_WSD(object):
             recall = count_recall/count_pos
         return total, count_pos, recall
 
-    def bad_case(self, y_output, y_input, x_info):
+    def bad_case(self, y_output, y_input, x_info, to_excel=False):
         goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         badcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         for y_out, y_in, info in zip(y_output, y_input, x_info):
@@ -146,16 +166,18 @@ class BLSTM_WSD(object):
             badcase["predict"].append("%.3f"%(y_out[0]))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
-        # df_bad = pd.DataFrame(badcase)
-        # df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
-        # df_good = pd.DataFrame(goodcase)
-        # df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
+        if to_excel:
+            df_bad = pd.DataFrame(badcase)
+            df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+            df_good = pd.DataFrame(goodcase)
+            df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
         batch_num = (int)(train_sample_num/batch_size)
         with tf.Session() as sess:
             tf.global_variables_initializer().run()
+            writer = tf.summary.FileWriter(path, sess.graph)
             for i in range(epoch):
                 for j in range(batch_num):
                     x_input = x_train[j*batch_size : (j+1)*batch_size]
@@ -182,6 +204,7 @@ class BLSTM_WSD(object):
 
             saver = tf.train.Saver()
             self.save(sess, saver, path, 0)
+        writer.close()
 
     def save(self, sess, saver, path, step):
         saver.save(sess, path + 'model.ckpt', step)
@@ -201,7 +224,7 @@ class BLSTM_WSD(object):
         total, pos, recall_pos = self.count_pos(y_output, y_input)
         _, neg, recall_neg = self.count_neg(y_output, y_input)
 
-        self.bad_case(y_output, y_input, x_info)
+        self.bad_case(y_output, y_input, x_info, to_excel=True)
         print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f"%(accu, recall_pos, recall_neg))
         print("total case: %d, positive: %d, negtive: %d"%(total, pos, neg))
 
