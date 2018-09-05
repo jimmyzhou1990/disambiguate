@@ -83,7 +83,8 @@ class BLSTM_WSD(object):
         with tf.variable_scope(name):
             cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
             cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
-            outputs, last_states = tf.nn.dynamic_rnn(cell=cell_drop,
+            cell_atten = tf.contrib.contrib_rnn.AttentionCellWrapper(cell_drop, 3, state_is_tuple=True)
+            outputs, last_states = tf.nn.dynamic_rnn(cell=cell_atten,
                                                      dtype=tf.float32,
                                                      sequence_length = length(input_x),
                                                      inputs=input_x)
