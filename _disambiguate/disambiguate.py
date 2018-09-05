@@ -20,6 +20,7 @@ class Disambiguate(object):
         self.COMPANY_NEG = conf['COMPANY_NEG']
         self.COMPANY_POS = conf['COMPANY_POS']
         self.COMPANY_NAME = conf['company_name']
+        self.method = conf['lstm']['method']
 
         self.evaluate_corpus = conf['lstm']['evaluate_corpus']
         self.range = conf['lstm']['range']
@@ -35,6 +36,41 @@ class Disambiguate(object):
         self.models = {}
 
     def load_models(self):
+        domain_param = {
+                        'airport':{
+                            'gate' : 0.5,
+                        }, 
+                        'estate':{
+                            'gate' : 0.5,
+                        }, 
+                        'food':{
+                            'gate' : 0.5,
+                        },
+                        'gaoxin':{
+                            'gate' : 0.5,
+                        }, 
+                        'highway':{
+                            'gate' : 0.5,
+                        }, 
+                        'industry':{
+                            'gate' : 0.5,
+                        }, 
+                        'medicine':{
+                            'gate' : 0.5,
+                        }, 
+                        'mix':{
+                            'gate' : 0.5,
+                        }, 
+                        'port':{
+                            'gate' : 0.5,
+                        },
+                        'tourism':{
+                            'gate' : 0.5,
+                        }, 
+                        'yunnanbaiyao':{
+                            'gate' : 0.5,
+                        },
+                      }
         m = {
             'model' : None,
             'feed'  : {
@@ -42,11 +78,14 @@ class Disambiguate(object):
                 'y_eval' : [],
                 'x_info' : [],
              },
+            'gate' : 0.6,
         }
         for d in self.domain:
             mx = copy.deepcopy(m)
             self.models[d] = mx
-        self.lstm_model = Text_LSTM()
+            self.models[d]['gate'] = domain_param[d]['gate']
+            print("domain [%s] gate: %d"%(d, self.models[d]['gate']))
+        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=1.0, w2vec=self.w2v_model)
 
     def run_models(self):
         p = 0
@@ -58,11 +97,12 @@ class Disambiguate(object):
             x_eval = np.array(self.models[d]['feed']['x_eval'])
             y_eval = np.array(self.models[d]['feed']['y_eval'])
             x_info = self.models[d]['feed']['x_info']
+            gate = self.models[d]['gate']
             if len(x_eval) == 0:
                 continue
             path = self.lstm_model_path+'/'+d
             print('load lstm model: %s'%path)
-            pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, path, d)
+            pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, path, d, gate)
             p += pos
             rp += rpos
             n += neg
@@ -111,7 +151,7 @@ class Disambiguate(object):
         elif re.match('老百姓', short_name):
             return 'medicine'
         elif re.match('好想你', short_name):
-            return 'mix'
+            return 'food'
         elif re.match('.*旅游', short_name):
             return 'tourism'
         elif re.match('.*高新', short_name):
@@ -167,6 +207,15 @@ class Disambiguate(object):
             return 'UnknownWord'
 
         return word
+    
+    # 过滤句子
+    def filter_sentence(self, s, keyword):
+        s = s.replace(keyword, ' '+keyword+' ')
+        splits = re.split('[@|]', s)
+        for ss in splits:
+            if ss.find(keyword) >= 0:
+                return ss
+        return ""
 
     def extend_vector(self, shortname, vec):
         if shortname == '老百姓':
@@ -194,15 +243,18 @@ class Disambiguate(object):
             for l in f:
                 items = l.strip().split('\t')
                 if len(items) != 3:
+                    print(items)
                     print("eval corpus bad line: short-name    text    label")
                     continue
 
                 short_name, text, label = items
+                text = self.filter_sentence(text, short_name)
                 wordlist = [w for w in list(jieba.cut(text))]
-                print("wordlist: %s"%wordlist)
+                #print("wordlist: %s"%wordlist)
                 try:
                     keyword_position = wordlist.index(short_name)
                 except:
+                    print(text)
                     print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
                     continue
 
@@ -292,9 +344,6 @@ class Disambiguate(object):
 
         self.run_models()
         self.collect_xlsx()
-
-        lstm = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=1.0, w2vec=self.w2v_model)
-        lstm.evaluate(x_eval, y_eval, x_info, self.lstm_model_path)
 
     def evaluate_models(self):
         self.evaluate_lstm_model()

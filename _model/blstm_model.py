@@ -12,6 +12,7 @@ class BLSTM_WSD(object):
         self.drop_vec = w2vec['UnknownWord']
         self.word_keep_prob = word_keep_prob
         self.model_name = model_name
+        self.gate = 0.5
 
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
@@ -99,7 +100,7 @@ class BLSTM_WSD(object):
 
     def loss_function(self, y_real, y_output):
         #loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=y_output, labels=y_real)
-        loss = -tf.reduce_mean(y_real * tf.log(y_output))
+        loss = -tf.reduce_mean(y_real * tf.log(tf.clip_by_value(y_output, 1e-8, 1.0)))
         return loss
 
     def accuracy(self, y_output, y_input):
@@ -107,55 +108,29 @@ class BLSTM_WSD(object):
         accu = np.mean(y_pred.astype(np.float32))
         return accu
 
-    def count_neg(self, y_output, y_input):
-        count_neg = 0
-        count_recall = 0
-        total = len(y_input)
-        for y_out, y_in in zip(y_output, y_input):
-            if y_in[0] == 0:
-                count_neg += 1
-                if y_out[0] < 0.5:
-                    count_recall += 1
-        recall = 0
-        if count_neg > 0:
-            recall = count_recall/count_neg
-        return total, count_neg, recall
-
-    def count_pos(self, y_output, y_input):
-        count_pos = 0
-        count_recall = 0
-        total = len(y_input)
-        for y_out, y_in in zip(y_output, y_input):
-            if y_in[0] == 1:
-                count_pos += 1
-                if y_out[0] > 0.5:
-                    count_recall += 1
-        recall = 0
-        if count_pos > 0:
-            recall = count_recall/count_pos
-        return total, count_pos, recall
-
     def bad_case(self, y_output, y_input, x_info, to_excel=False):
         goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         badcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         for y_out, y_in, info in zip(y_output, y_input, x_info):
+            y_out_p = y_out[0]
+            y_out[0] = 1 if y_out[0] >= self.gate else 0
             if np.argmax(y_out, 0) == np.argmax(y_in, 0):
                 columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
                 goodcase["company"].append(info[0])
                 goodcase["real"].append("%.3f"%(y_in[0]))
-                goodcase["predict"].append("%.3f"%(y_out[0]))
+                goodcase["predict"].append("%.3f"%(y_out_p))
                 goodcase["sentence"].append(info[1])
                 goodcase["feature word list"].append(str(info[2]))
-                #print("good case: [%s]"%info[0])
-                #print('y_true: (%.3f, %.3f), y_out: (%.3f, %.3f)'%(y_in[0], y_in[1], y_out[0], y_out[1]))
-                #print("primary sentence:")
-                #print(info[1])
-                #print('feature word list:')
-                #print(info[2])
-                #print('--------------------------------------------------')
+                print("good case: [%s]"%info[0])
+                print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out_p))
+                print("primary sentence:")
+                print(info[1])
+                print('feature word list:')
+                print(info[2])
+                print('--------------------------------------------------')
                 continue
             print("Bad case: [%s]"%info[0])
-            print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out[0]))
+            print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out_p))
             print("primary sentence:")
             print(info[1])
             print('feature word list:')
@@ -164,14 +139,14 @@ class BLSTM_WSD(object):
             columns = ['company', 'real', 'predict', 'sentence', 'feature word list']
             badcase["company"].append(info[0])
             badcase["real"].append("%.3f"%(y_in[0]))
-            badcase["predict"].append("%.3f"%(y_out[0]))
+            badcase["predict"].append("%.3f"%(y_out_p))
             badcase["sentence"].append(info[1])
             badcase["feature word list"].append(str(info[2]))
         if to_excel:
             df_bad = pd.DataFrame(badcase)
-            df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase.xlsx", index=False, columns=columns)
+            df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase_%s.xlsx"%self.model_name, index=False, columns=columns)
             df_good = pd.DataFrame(goodcase)
-            df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase.xlsx", index=False, columns=columns)
+            df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase_%s.xlsx"%self.model_name, index=False, columns=columns)
 
     def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, batch_size, path):
         train_sample_num = len(y_train)
@@ -253,13 +228,14 @@ class BLSTM_WSD(object):
         total, pos, rpos, recall_pos = self.count_pos(y_output, y_input)
         _, neg, rneg, recall_neg = self.count_neg(y_output, y_input)
 
-        self.bad_case(y_output, y_input, x_info)
+        self.bad_case(y_output, y_input, x_info, to_excel=True)
         print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f" % (accu, recall_pos, recall_neg))
         print("total case: %d, positive: %d, negtive: %d" % (total, pos, neg))
         return pos, rpos, neg, rneg
 
-    def evaluate(self, x_input, y_input, x_info, model_path, model_name):
+    def evaluate(self, x_input, y_input, x_info, model_path, model_name, gate):
         self.model_name = model_name
+        self.gate = gate
         saver = tf.train.Saver()
         with tf.Session() as sess:
             self.load(sess, saver, model_path)

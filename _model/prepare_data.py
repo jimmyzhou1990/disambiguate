@@ -109,20 +109,21 @@ def get_lstm_dataset(conf):
 
     range = int(conf['lstm']['range'])
     corpus_path = conf['lstm']['corpus_path']
+    domain = conf['lstm']['domain']
     company_neg = conf['COMPANY_NEG']
     company_pos = conf['COMPANY_POS']
     stopwords_path = conf['stopwords_path']
     stopword_set = set([l.strip() for l in open(stopwords_path, 'rt')])
 
 
-    x_neg, x_neg_info = load_sentence_feature(corpus_path + version+'/lstm_title.neg',
+    x_neg, x_neg_info = load_sentence_feature(corpus_path + version+'/lstm_title_'+domain+'.neg',
                                      range, 2*range,  company_neg, w2vec, vocab_set, stopword_set)
     print(x_neg[0])
  
     y_neg = [[0, 1]] * len(x_neg)
     print("neg sample: %d"%len(x_neg))
 
-    x_pos, x_pos_info = load_sentence_feature(corpus_path+ version +'/lstm_title.pos',
+    x_pos, x_pos_info = load_sentence_feature(corpus_path + version+'/lstm_title_'+domain+'.pos',
                                              range, 2*range, company_pos, w2vec, vocab_set, stopword_set)
     y_pos = [[1, 0]]*len(x_pos)
     print("pos sample: %d"%len(x_pos))
@@ -132,7 +133,7 @@ def get_lstm_dataset(conf):
     x_info = x_neg_info + x_pos_info
 
     import random
-    randnum = 50   #固定训练集和测试集
+    randnum = random.randint(1,100)   #固定训练集和测试集
     random.seed(randnum)
     random.shuffle(x_set)
     random.seed(randnum)
