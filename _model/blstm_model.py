@@ -81,15 +81,21 @@ class BLSTM_WSD(object):
             return length
 
         with tf.variable_scope(name):
+            sequence_length = length(input_x)
             cell = rnn.BasicLSTMCell(num_units=hidden_units, state_is_tuple=True)
             cell_drop = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=1, output_keep_prob=1)
-            cell_atten = tf.contrib.contrib_rnn.AttentionCellWrapper(cell_drop, 3, state_is_tuple=True)
+            cell_atten = tf.contrib.seq2seq.AttentionWrapper(cell_drop, 3, state_is_tuple=True)
             outputs, last_states = tf.nn.dynamic_rnn(cell=cell_atten,
                                                      dtype=tf.float32,
-                                                     sequence_length = length(input_x),
+                                                     sequence_length = sequence_length,
                                                      inputs=input_x)
-            output = last_states.h
+            #output = last_states.h
+            output = self.attention_layer(outputs)
             return output  #返回最后一个状态  LSTMStateTuple.h
+
+    def attention_layer(self, rnn_outputs):
+        output = tf.reduce_mean(rnn_outputs, axis=1)
+        return output
 
     def softmax_layer(self, input_tensor, hidden_units, class_num):
         self.w = tf.Variable(tf.random_normal(shape=[hidden_units, class_num], stddev=0.01),
