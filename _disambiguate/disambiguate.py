@@ -21,6 +21,7 @@ class Disambiguate(object):
         self.COMPANY_POS = conf['COMPANY_POS']
         self.COMPANY_NAME = conf['company_name']
         self.method = conf['lstm']['method']
+        self.domain = conf['lstm']['domain']
 
         self.evaluate_corpus = conf['lstm']['evaluate_corpus']
         self.range = conf['lstm']['range']
@@ -31,7 +32,7 @@ class Disambiguate(object):
             self.company_list.append(company['full_name'])
         print(self.company_list)
 
-        self.domain = ['airport', 'estate', 'food', 'gaoxin', 'highway', 'industry', 'medicine', 'mix', 'port',
+        self.all_domain = ['airport', 'estate', 'food', 'gaoxin', 'highway', 'industry', 'medicine', 'mix', 'port',
                        'tourism', 'yunnanbaiyao']
         self.models = {}
 
@@ -80,19 +81,21 @@ class Disambiguate(object):
              },
             'gate' : 0.6,
         }
-        for d in self.domain:
+        for d in self.all_domain:
             mx = copy.deepcopy(m)
             self.models[d] = mx
             self.models[d]['gate'] = domain_param[d]['gate']
             print("domain [%s] gate: %d"%(d, self.models[d]['gate']))
-        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=1.0, w2vec=self.w2v_model)
+        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model)
 
     def run_models(self):
         p = 0
         rp = 0
         n = 0
         rn = 0
-        for d in self.domain:
+        for d in self.all_domain:
+            if self.method == 'single' and d != self.domain:
+                continue
             lstm = self.lstm_model
             x_eval = np.array(self.models[d]['feed']['x_eval'])
             y_eval = np.array(self.models[d]['feed']['y_eval'])
@@ -119,7 +122,7 @@ class Disambiguate(object):
             bad_df[c] = []
             good_df[c] = []
 
-        for d in self.domain:
+        for d in self.all_domain:
             path = '/home/op/work/survey/log/lstm_eval_badcase_%s.xlsx' % d
             if os.path.exists(path):
                 df = pd.read_excel(path)
@@ -185,6 +188,12 @@ class Disambiguate(object):
     def filter_word(self, word, vocab, short_name):
         if word == short_name or word == ' ' or word in self.stopword_set:
             return ''
+
+        #pattern_str = '^[年月日]$'
+        #pattern = re.compile(pattern_str)
+        #res = pattern.match(word)
+        #if res:
+        #    return 'UnknownWord'
 
         pattern_str = '^\d{6}$'  # 股票代码
         pattern = re.compile(pattern_str)
@@ -289,7 +298,7 @@ class Disambiguate(object):
 
                 # concat
                 veclist = pre_veclist + suc_veclist
-                info = (short_name, "".join(wordlist), pre_wordlist + suc_wordlist)
+                info = (short_name, "".join(wordlist), pre_wordlist , suc_wordlist)
 
                 x_eval.append(veclist)
                 y_eval.append([1, 0] if label == '1' else [0, 1])

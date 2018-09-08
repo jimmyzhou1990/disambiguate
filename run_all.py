@@ -76,6 +76,7 @@ conf = {
         'w2vec_version'    :  'v2',
         'domain'           :  'port',
         'method'           :  'mix',
+        'batch_size'       :  128,
     }
 
 }
@@ -96,9 +97,13 @@ elif sys.argv[1] == 'w2vec':
 elif sys.argv[1] == 'test':
     print("test model...")
     if len(sys.argv) != 4:
-        print("cmd  test  v3   mix|domain")
+        print("cmd  test  v3   mix|domain|port")
     conf['lstm']['version'] = sys.argv[2]
-    conf['lstm']['method'] = sys.argv[3]
+    if sys.argv[3] == 'mix' or sys.argv[3] == 'domain':
+        conf['lstm']['method'] = sys.argv[3]
+    else:
+        conf['lstm']['domain'] = sys.argv[3]
+        conf['lstm']['method'] = 'single'
     disam = Disambiguate(conf)
     disam.evaluate_models()
 
@@ -146,8 +151,9 @@ elif sys.argv[1] == 'lstm':
         conf['lstm']['version'] = 'v6'
         conf['lstm']['domain'] = sys.argv[3]
         range = conf['lstm']['range']
+        batch_size = conf['lstm']['batch_size']
         x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
-        lstm = BLSTM_WSD(max_seq_length=range * 2, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'])
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15, 128,
+        lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'])
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
                             )

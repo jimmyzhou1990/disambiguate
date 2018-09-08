@@ -92,7 +92,7 @@ def load_sentence_feature(corpus_path, range, seq_length,  keyword, w2vec, vocab
 
             #concat
             veclist = pre_veclist + suc_veclist
-            info = (shortname, "".join(wordlist), pre_wordlist+suc_wordlist)
+            info = (shortname, "".join(wordlist), pre_wordlist, suc_wordlist)
 
             x_set.append(veclist)
             x_info.append(info)
@@ -133,7 +133,7 @@ def get_lstm_dataset(conf):
     x_info = x_neg_info + x_pos_info
 
     import random
-    randnum = random.randint(1,100)   #固定训练集和测试集
+    randnum = random.randint(1,100)   #固定训练集和测试集 
     random.seed(randnum)
     random.shuffle(x_set)
     random.seed(randnum)
