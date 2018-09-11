@@ -1,6 +1,7 @@
 import sys
 from _corpus.company_corpus import CorpusFactory
 from _corpus.clean_corpus import CorpusCleaner
+from _corpus.online_test_corpus import OnlineTestCorpus
 from _model.word2vector import w2vectorFactory
 from _disambiguate.disambiguate import Disambiguate
 from _model.lstm_model import Text_LSTM
@@ -27,6 +28,8 @@ conf = {
     'w2v_model_path'     : '/home/op/work/survey/model/w2vec/',
     'test_corpus_path' : '/home/op/work/survey/data/test.txt',
     'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+    'online_date'      :  {'start':'2018-08-25', 'end':'2018-08-26'},
+    'online_path'  :  '/home/op/work/survey/corpus/online/',
     'COMPANY_POS'      : 'COMPANY_POS',
     'COMPANY_NEG'      : 'COMPANY_NEG',
     'sentence_path'    : '/home/op/work/survey/data/sentence_sure.txt',
@@ -89,6 +92,10 @@ if sys.argv[1] == 'collect':
     fac = CorpusFactory(conf)
     fac.collect_corpus(sys.argv[2])
     #fac.collect_lstm_corpus()
+
+elif sys.argv[1] == 'collect_online':
+    clt = OnlineTestCorpus(conf)
+    clt.collect_online_pos()
 
 elif sys.argv[1] == 'w2vec':
     print("train model ...")
