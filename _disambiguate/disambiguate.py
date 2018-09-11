@@ -22,6 +22,7 @@ class Disambiguate(object):
         self.COMPANY_NAME = conf['company_name']
         self.method = conf['lstm']['method']
         self.domain = conf['lstm']['domain']
+        self.attention = conf['lstm']['attention']
 
         self.evaluate_corpus = conf['lstm']['evaluate_corpus']
         self.range = conf['lstm']['range']
@@ -86,7 +87,7 @@ class Disambiguate(object):
             self.models[d] = mx
             self.models[d]['gate'] = domain_param[d]['gate']
             print("domain [%s] gate: %d"%(d, self.models[d]['gate']))
-        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model)
+        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model, attention=self.attention)
 
     def run_models(self):
         p = 0
@@ -106,12 +107,13 @@ class Disambiguate(object):
             path = self.lstm_model_path+'/'+d
             print('load lstm model: %s'%path)
             pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, path, d, gate)
-            p += pos
-            rp += rpos
-            n += neg
-            rn += rneg
-        total = p + n
-        print("positive: %d, negtive: %d, recall_pos: %.3f, recall_neg: %.3f, accuracy: %.3f"%(p, n, rp/p, rn/n, (rn+rp)/total))
+            p += pos    #正例
+            rp += rpos  #正例正确召回
+            n += neg    #负例
+            rn += rneg  #负例正确召回
+        total = p + n   #总case数
+        rpn = rp + n - rn # 判定为正例的总数
+        print("positive: %d, negtive: %d, recall_pos: %.3f, precision_pos: %.3f, total_accuracy: %.3f"%(p, n, rp/p, rp/rpn, (rn+rp)/total))
 
     def collect_xlsx(self):
         # /home/op/work/survey/log/lstm_eval_badcase_%s.xlsx

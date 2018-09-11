@@ -6,7 +6,7 @@ import random
 
 class BLSTM_WSD(object):
 
-    def __init__(self, max_seq_length=30, embedding_size=100, batch_size=128,  hidden_units=50, word_keep_prob=1.0, w2vec=None, model_name='model'):
+    def __init__(self, max_seq_length=30, embedding_size=100, batch_size=128,  hidden_units=50, word_keep_prob=1.0, w2vec=None, model_name='model', attention=False):
         self.range = int(max_seq_length/2)
         self.w2vec = w2vec
         self.drop_vec = w2vec['UnknownWord']
@@ -14,6 +14,7 @@ class BLSTM_WSD(object):
         self.model_name = model_name
         self.gate = 0.5
         self.batch_size = batch_size
+        self.attention = attention
 
         self.x_input = tf.placeholder(dtype=tf.float32,
                                       shape=[None, max_seq_length, embedding_size],
@@ -99,9 +100,12 @@ class BLSTM_WSD(object):
                                                      dtype=tf.float32,
                                                      sequence_length = sequence_length,
                                                      inputs=input_x)
-            #output = last_states.h
+            if self.attention:
+                output = self.attention_layer(outputs, hidden_units, hidden_units, name)
+            else:
+                output = last_states.h
             # 'outputs' is a tensor of shape [batch_size, max_time, cell_state_size]
-            output = self.attention_layer(outputs, hidden_units, hidden_units, name)
+            #output = self.attention_layer(outputs, hidden_units, hidden_units, name)
             return output  #返回最后一个状态  LSTMStateTuple.h
 
     def attention_layer(self, rnn_outputs, rnn_units, attention_units, name):
@@ -191,7 +195,7 @@ class BLSTM_WSD(object):
                         print(info[3])
                     print('--------------------------------------------------')
                 continue
-            print("Bad case: [%s]"%info[0])
+            print("******!!!******Bad case: [%s]"%info[0])
             print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out_p))
             print("primary sentence:")
             print(info[1])
@@ -297,14 +301,18 @@ class BLSTM_WSD(object):
 
     def predict(self, sess, x_input, y_input, x_info):
         feed_dict = {self.x_input: x_input, self.y_input: y_input}
-        y_output, pre_attn, sec_atten = sess.run((self.y_output, self.pre_attn, self.sec_attn), feed_dict=feed_dict)
-        attn = (pre_attn.tolist(), sec_atten.tolist())
+        attn = None
+        if self.attention:
+            y_output, pre_attn, sec_atten = sess.run((self.y_output, self.pre_attn, self.sec_attn), feed_dict=feed_dict)
+            attn = (pre_attn.tolist(), sec_atten.tolist())
+        else:
+            y_output = sess.run(self.y_output, feed_dict=feed_dict)
 
         accu = self.accuracy(y_output, y_input)
         total, pos, rpos, recall_pos = self.count_pos(y_output, y_input)
         _, neg, rneg, recall_neg = self.count_neg(y_output, y_input)
 
-        self.bad_case(y_output, y_input, x_info, attn=attn,  to_excel=True, print_goodcase=True)
+        self.bad_case(y_output, y_input, x_info, attn=attn,  to_excel=True, print_goodcase=False)
         print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f" % (accu, recall_pos, recall_neg))
         print("total case: %d, positive: %d, negtive: %d" % (total, pos, neg))
         return pos, rpos, neg, rneg

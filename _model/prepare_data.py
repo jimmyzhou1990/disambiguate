@@ -133,7 +133,8 @@ def get_lstm_dataset(conf):
     x_info = x_neg_info + x_pos_info
 
     import random
-    randnum = random.randint(1,100)   #固定训练集和测试集 
+    #randnum = random.randint(1,100)   #固定训练集和测试集 
+    randnum = 50
     random.seed(randnum)
     random.shuffle(x_set)
     random.seed(randnum)

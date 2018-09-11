@@ -77,6 +77,7 @@ conf = {
         'domain'           :  'port',
         'method'           :  'mix',
         'batch_size'       :  128,
+        'attention'        :  True,
     }
 
 }
@@ -153,7 +154,7 @@ elif sys.argv[1] == 'lstm':
         range = conf['lstm']['range']
         batch_size = conf['lstm']['batch_size']
         x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
-        lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'])
+        lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'], attention=conf['lstm']['attention'])
         lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15,
                             conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
                             )
