@@ -174,7 +174,7 @@ class BLSTM_WSD(object):
                 goodcase["real"].append("%.3f"%(y_in[0]))
                 goodcase["predict"].append("%.3f"%(y_out_p))
                 goodcase["sentence"].append(info[1])
-                goodcase["feature word list"].append(str(info[2]))
+                goodcase["feature word list"].append(str(info[2]+info[3]))
                 if print_goodcase:
                     print("good case: [%s]"%info[0])
                     print('y_true: %.3f, y_out: %.3f'%(y_in[0], y_out_p))
@@ -218,7 +218,7 @@ class BLSTM_WSD(object):
             badcase["real"].append("%.3f"%(y_in[0]))
             badcase["predict"].append("%.3f"%(y_out_p))
             badcase["sentence"].append(info[1])
-            badcase["feature word list"].append(str(info[2]))
+            badcase["feature word list"].append(str(info[2]+info[3]))
         if to_excel:
             df_bad = pd.DataFrame(badcase)
             df_bad.to_excel("/home/op/work/survey/log/lstm_eval_badcase_%s.xlsx"%self.model_name, index=False, columns=columns)

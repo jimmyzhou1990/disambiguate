@@ -14,7 +14,7 @@ class OnlineTestCorpus(object):
         self.fullname2shortname = self.fullname2shortname()
         self.ambiguous_fullname = [c['full_name'] for c in self.company_list]
         self.ambiguous_shortname = [c['short_name'] for c in self.company_list]
-        self.path = conf['online_pos']
+        self.path = conf['online_path']
         self.date = conf['online_date']
 
         print(self.fullname2shortname)
@@ -61,7 +61,7 @@ class OnlineTestCorpus(object):
         esindex = es_index('192.168.2.46', 9200, 'online2_news_index', 'online_news')
         docs = esindex.search_index_scroll(query)
         print("total doc cnt:%d" % (len(docs)))
-        docs_ambiguous = [doc for doc in docs if doc['company_name'] in self.ambiguous_fullname]
+        docs_ambiguous = [doc for doc in docs if doc["_source"]['company_name'] in self.ambiguous_fullname]
         print("ambiguous docs cnt: %d"%len(docs_ambiguous))
         return docs_ambiguous
 
@@ -69,8 +69,8 @@ class OnlineTestCorpus(object):
         docs = self.read_es(self.date['start'], self.date['end'])
         with open(self.path+'online_pos/'+self.date['start']+'.pos', 'w+') as f:
             for doc in docs:
-                short_name = self.fullname2shortname[doc['company_name']]
-                title = doc['title']
+                short_name = self.fullname2shortname[doc["_source"]['company_name']]
+                title = doc["_source"]['title']
                 title = re.sub('\t|\n', ' ', title)
                 label = '1'
                 f.write(short_name+'\t'+title+'\t'+label+'\n')

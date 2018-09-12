@@ -227,9 +227,11 @@ class CorpusFactory(object):
         start_date = '2018-08-01'
         for company in self.company_list:
             short_name = company['short_name']
+            if short_name != '长青':
+                continue
             full_name = company['full_name']
             path = "%s/%s/%s" % (self.corpus_path, short_name, short_name)
-
+            
             if cmd == 'match':
                 docs = self.read_es(full_name, start_date)
                 self.match(docs)
@@ -273,7 +275,7 @@ class CorpusFactory(object):
         f_p.close()
 
     #输入公司全名  输出docs
-    def read_es(self, company_name, start_date):
+    def read_es(self, company_name, start_date=None):
         query = {
             "query": {
                 "bool": {
@@ -302,8 +304,11 @@ class CorpusFactory(object):
         docs = esindex.search_index_scroll(query)
         print("doc_cnt:%d" % (len(docs)))
         # print(docs[0])
-
-        docs_filter = [doc for doc in docs if doc['_source']['publish_date'] >= start_date]
+        
+        if start_date:
+            docs_filter = [doc for doc in docs if doc['_source']['publish_date'] >= start_date]
+        else:
+            docs_filter = docs
         print("doc_filter: %d"%len(docs_filter))
         return docs_filter
 

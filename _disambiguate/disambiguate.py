@@ -34,7 +34,7 @@ class Disambiguate(object):
         print(self.company_list)
 
         self.all_domain = ['airport', 'estate', 'food', 'gaoxin', 'highway', 'industry', 'medicine', 'mix', 'port',
-                       'tourism', 'yunnanbaiyao']
+                       'tourism', 'yunnanbaiyao', 'resource']
         self.models = {}
 
     def load_models(self):
@@ -70,6 +70,9 @@ class Disambiguate(object):
                             'gate' : 0.5,
                         }, 
                         'yunnanbaiyao':{
+                            'gate' : 0.5,
+                        },
+                        'resource':{
                             'gate' : 0.5,
                         },
                       }
@@ -113,7 +116,7 @@ class Disambiguate(object):
             rn += rneg  #负例正确召回
         total = p + n   #总case数
         rpn = rp + n - rn # 判定为正例的总数
-        print("positive: %d, negtive: %d, recall_pos: %.3f, precision_pos: %.3f, total_accuracy: %.3f"%(p, n, rp/p, rp/rpn, (rn+rp)/total))
+        print("positive: %d, negtive: %d, recall_pos: %.3f, precision_pos: %.3f, total_accuracy: %.3f"%(p, n, rp/(p+0.01), rp/(rpn+0.01), (rn+rp)/total))
 
     def collect_xlsx(self):
         # /home/op/work/survey/log/lstm_eval_badcase_%s.xlsx
@@ -165,6 +168,8 @@ class Disambiguate(object):
             return 'industry'
         elif re.match('云南白药', short_name):
             return 'yunnanbaiyao'
+        elif re.match('鄂尔多斯', short_name):
+            return 'resource'
         elif re.match('葛洲坝|华夏幸福|陆家嘴|天地源|阳光城|金融街|华侨城|花样年|新华联|浦东金桥', short_name):
             return 'estate'
         else:

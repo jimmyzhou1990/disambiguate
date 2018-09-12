@@ -22,7 +22,7 @@ conf = {
         #     'short_name' :  '星星'
         # },
     ],
-    'corpus_path'    : '/home/op/work/survey/corpus/latest_keywords',
+    'corpus_path'    : '/home/op/work/survey/corpus',
     'user_dict'      : '/home/op/work/survey/data/user_dict.txt',
     'stopwords_path' : '/home/op/work/survey/data/stop_word.txt',
     'w2v_model_path'     : '/home/op/work/survey/model/w2vec/',
@@ -75,12 +75,12 @@ conf = {
         'corpus_path'   :  '/home/op/work/survey/corpus/lstm/',
         'version'       :  'v3',
         'range'         :  30,
-        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_online_0825.txt',
         'w2vec_version'    :  'v2',
         'domain'           :  'port',
         'method'           :  'mix',
         'batch_size'       :  128,
-        'attention'        :  True,
+        'attention'        :  False,
     }
 
 }
