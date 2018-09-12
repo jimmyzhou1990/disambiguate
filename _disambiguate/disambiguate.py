@@ -34,7 +34,7 @@ class Disambiguate(object):
         print(self.company_list)
 
         self.all_domain = ['airport', 'estate', 'food', 'gaoxin', 'highway', 'industry', 'medicine', 'mix', 'port',
-                       'tourism', 'yunnanbaiyao', 'resource']
+                       'tourism', 'yunnanbaiyao', 'resource', 'concrete']
         self.models = {}
 
     def load_models(self):
@@ -73,6 +73,9 @@ class Disambiguate(object):
                             'gate' : 0.5,
                         },
                         'resource':{
+                            'gate' : 0.5,
+                        },
+                        'concrete':{
                             'gate' : 0.5,
                         },
                       }
@@ -170,6 +173,8 @@ class Disambiguate(object):
             return 'yunnanbaiyao'
         elif re.match('鄂尔多斯', short_name):
             return 'resource'
+        elif re.match('祁连山|万年青', short_name):
+            return 'concrete'
         elif re.match('葛洲坝|华夏幸福|陆家嘴|天地源|阳光城|金融街|华侨城|花样年|新华联|浦东金桥', short_name):
             return 'estate'
         else:
