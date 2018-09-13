@@ -34,17 +34,23 @@ class BLSTM_WSD(object):
         # concat
         with tf.name_scope("concat_rnn"):
             rnn_concat = tf.concat([pre_rnn_output, sec_rnn_output], 1)
-        
+
+        # hidden layer
         rnn_hidden_out = hidden_units*2
         with tf.name_scope("hidden_layer"):
             rnn_output = self.rnn_output_hidden_layer(rnn_concat, rnn_hidden_out)
-        
+
+        # softmax
         with tf.name_scope("soft_max"):
             self.y_output = self.softmax_layer(rnn_output, rnn_hidden_out, 2)
-            #self.y_output = self.softmax_layer(rnn_concat, rnn_hidden_out, 2)
-        
+
+        # loss
         with tf.name_scope("loss_fun"):
             self.loss = self.loss_function(self.y_input, self.y_output)
+
+        # accuracy
+        with tf.name_scope("accuracy"):
+            self.accuracy = self.accuracy()
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         with tf.name_scope("Optimizer"):
@@ -77,7 +83,6 @@ class BLSTM_WSD(object):
                                       name='bias')
         y = tf.matmul(input_x, self.w)+self.b
         return y
-
 
     def rnn_layer(self, input_x, hidden_units, name, type='dynamic'):
         def length(sequence):
@@ -146,9 +151,9 @@ class BLSTM_WSD(object):
         return loss
 
     def accuracy(self, y_output, y_input):
-        y_pred = np.equal(np.argmax(y_output, axis=1), np.argmax(y_input, axis=1))
-        accu = np.mean(y_pred.astype(np.float32))
-        return accu
+        correct_predictions = tf.equal(tf.argmax(y_output, axis=1), tf.argmax(y_input, axis=1))
+        accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+        return accuracy
 
     def bad_case(self, y_output, y_input, x_info, attn=None,  to_excel=False, print_goodcase=False):
         goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
@@ -231,22 +236,23 @@ class BLSTM_WSD(object):
         batch_num = (int)(train_sample_num/batch_size)
         with tf.Session() as sess:
             tf.global_variables_initializer().run()
-            writer = tf.summary.FileWriter(path, sess.graph)
+            writer = tf.summary.FileWriter(path+'/summary', sess.graph)
+            tf.summary.scalar('test_accuracy', self.accuracy)
+            merged = tf.summary.merge_all()
             for i in range(epoch):
                 for j in range(batch_num):
                     x_input = x_train[j*batch_size : (j+1)*batch_size]
                     x_input = self.drop_word(x_input)
                     y_input = y_train[j*batch_size : (j+1)*batch_size]
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
-                    _, loss, y_out = sess.run((self.train_op, self.loss, self.y_output), feed_dict=feed_dict)
-                    accu = self.accuracy(y_out, y_input)
-                    print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accu))
+                    _, loss, accuracy = sess.run((self.train_op, self.loss, self.accuracy), feed_dict=feed_dict)
+                    print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accuracy))
 
                 #test
                 feed_dict = {self.x_input: x_test, self.y_input: y_test}
-                y_output = sess.run(self.y_output, feed_dict=feed_dict)
-                accu = self.accuracy(y_output, y_test)
-                print('accuracy: %f'%accu)
+                accuracy, y_output, summary = sess.run((self.accuracy, self.y_output, merged), feed_dict=feed_dict)
+                writer.add_summary(summary, i)
+                print('test accuracy: %f' % accuracy)
 
                 #shuffle
                 np.random.seed(i)
@@ -258,7 +264,7 @@ class BLSTM_WSD(object):
 
             saver = tf.train.Saver()
             self.save(sess, saver, path, 0)
-        writer.close()
+        #writer.close()
 
     def save(self, sess, saver, path, step):
         saver.save(sess, path + self.model_name + '/' + self.model_name + '.ckpt', step)
