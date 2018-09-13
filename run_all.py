@@ -7,6 +7,7 @@ from _disambiguate.disambiguate import Disambiguate
 from _model.lstm_model import Text_LSTM
 from _model.blstm_model import BLSTM_WSD
 from _model.prepare_data import  get_lstm_dataset
+import os
 
 def load_config(conf):
     with open("/home/op/work/survey/data/company_disambiguate.txt") as f:
@@ -164,5 +165,5 @@ elif sys.argv[1] == 'lstm':
         x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
         lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'], attention=conf['lstm']['attention'])
         lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15,
-                            conf['lstm']['model_path'] + conf['lstm']['version'] + '/',
+                            os.path.join(conf['lstm']['model_path'], conf['lstm']['version'])
                             )

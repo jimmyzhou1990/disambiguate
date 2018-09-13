@@ -3,6 +3,7 @@ from tensorflow.contrib import rnn
 import numpy as np
 import pandas as pd
 import random
+import os
 
 class BLSTM_WSD(object):
 
@@ -50,7 +51,7 @@ class BLSTM_WSD(object):
 
         # accuracy
         with tf.name_scope("accuracy"):
-            self.accuracy = self.accuracy()
+            self.accuracy = self.accuracy(self.y_output, self.y_input)
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         with tf.name_scope("Optimizer"):
@@ -234,10 +235,17 @@ class BLSTM_WSD(object):
         train_sample_num = len(y_train)
         batch_size = self.batch_size
         batch_num = (int)(train_sample_num/batch_size)
+
+        # 删除之前的summary
+        model_path = os.path.join(path, self.model_name)
+        print('summary to [%s]' %model_path)
+        tf.gfile.DeleteRecursively(os.path.join(path, model_path))
+
         with tf.Session() as sess:
             tf.global_variables_initializer().run()
-            writer = tf.summary.FileWriter(path+'/summary', sess.graph)
+            writer = tf.summary.FileWriter(model_path, sess.graph)
             tf.summary.scalar('test_accuracy', self.accuracy)
+            tf.summary.scalar('loss', self.loss)
             merged = tf.summary.merge_all()
             for i in range(epoch):
                 for j in range(batch_num):
@@ -245,7 +253,8 @@ class BLSTM_WSD(object):
                     x_input = self.drop_word(x_input)
                     y_input = y_train[j*batch_size : (j+1)*batch_size]
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
-                    _, loss, accuracy = sess.run((self.train_op, self.loss, self.accuracy), feed_dict=feed_dict)
+                    _, loss, accuracy, _ = sess.run((self.train_op, self.loss, self.accuracy, merged), feed_dict=feed_dict)
+                    writer.add_summary(loss, j)
                     print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accuracy))
 
                 #test
@@ -309,12 +318,12 @@ class BLSTM_WSD(object):
         feed_dict = {self.x_input: x_input, self.y_input: y_input}
         attn = None
         if self.attention:
-            y_output, pre_attn, sec_atten = sess.run((self.y_output, self.pre_attn, self.sec_attn), feed_dict=feed_dict)
+            y_output, accu, pre_attn, sec_atten = sess.run((self.y_output, self.accuracy, self.pre_attn, self.sec_attn),
+                                                           feed_dict=feed_dict)
             attn = (pre_attn.tolist(), sec_atten.tolist())
         else:
-            y_output = sess.run(self.y_output, feed_dict=feed_dict)
+            y_output, accu = sess.run((self.y_output, self.accuracy), feed_dict=feed_dict)
 
-        accu = self.accuracy(y_output, y_input)
         total, pos, rpos, recall_pos = self.count_pos(y_output, y_input)
         _, neg, rneg, recall_neg = self.count_neg(y_output, y_input)
 
