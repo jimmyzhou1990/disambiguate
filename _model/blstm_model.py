@@ -25,6 +25,10 @@ class BLSTM_WSD(object):
                                       shape=[None, 2],
                                       name='y_input')
 
+        self.gate = tf.placeholder(dtype=tf.float32,
+                                   shape=[1],
+                                   name='gate')
+
         # rnn layer
         with tf.name_scope("slice"):
             pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1], name='slice_for_preceding')
@@ -52,6 +56,10 @@ class BLSTM_WSD(object):
         # accuracy
         with tf.name_scope("accuracy"):
             self.accuracy = self.accuracy(self.y_output, self.y_input)
+
+        # recall and accuracy of positive
+        with tf.name_scope("recall_accuracy"):
+            self.accuracy_pos, self.recall_pos = self.accuracy_recall_positive(self.y_output, self.y_input, self.gate)
 
         #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         with tf.name_scope("Optimizer"):
@@ -156,6 +164,16 @@ class BLSTM_WSD(object):
         accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
         return accuracy
 
+    def accuracy_recall_positive(self, y_output, y_input, gate):
+        y_pos = tf.slice(y_output, begin=[0, 0], size=[-1, 1], name='extract_y_pred_0') # 取出正向分值
+        y_label = tf.slice(y_input, begin=[0, 0], size=[-1, 1], name='extract_y_label_0')
+        y_gate = tf.zeros_like(y_pos)+gate
+        y_pred = tf.cast(tf.greater_equal(y_pos, y_gate), 'float')   # 预测值
+        label_sum_pos = tf.reduce_sum(y_label) #标签为1的总数
+        pred_sum_pos = tf.reduce_sum(y_pred)   # 预测为1的总数
+        pred_right_pos = tf.reduce_sum(y_pred*y_label)  # 预测和标签都为1的总数
+        return pred_right_pos/(pred_sum_pos+0.001), pred_right_pos/(label_sum_pos+0.001)
+
     def bad_case(self, y_output, y_input, x_info, attn=None,  to_excel=False, print_goodcase=False):
         goodcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
         badcase = {"company":[], "real":[], "predict":[], "sentence": [], "feature word list":[]}
@@ -245,7 +263,8 @@ class BLSTM_WSD(object):
             tf.global_variables_initializer().run()
             writer = tf.summary.FileWriter(model_path, sess.graph)
             tf.summary.scalar('test_accuracy', self.accuracy)
-            tf.summary.scalar('loss', self.loss)
+            tf.summary.scalar('accuracy_pos', self.accuracy_pos)
+            tf.summary.scalar('recall_pos', self.recall_pos)
             merged = tf.summary.merge_all()
             for i in range(epoch):
                 for j in range(batch_num):
@@ -253,13 +272,17 @@ class BLSTM_WSD(object):
                     x_input = self.drop_word(x_input)
                     y_input = y_train[j*batch_size : (j+1)*batch_size]
                     feed_dict = {self.x_input:x_input, self.y_input:y_input}
-                    _, loss, accuracy, _ = sess.run((self.train_op, self.loss, self.accuracy, merged), feed_dict=feed_dict)
-                    writer.add_summary(loss, j)
+                    _, loss, accuracy = sess.run((self.train_op, self.loss, self.accuracy), feed_dict=feed_dict)
                     print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accuracy))
 
                 #test
-                feed_dict = {self.x_input: x_test, self.y_input: y_test}
-                accuracy, y_output, summary = sess.run((self.accuracy, self.y_output, merged), feed_dict=feed_dict)
+                feed_dict = {self.x_input: x_test, self.y_input: y_test, self.gate: 0.5}
+                accuracy, y_output, accuracy_pos, recall_pos, summary = sess.run((self.accuracy,
+                                                                                  self.y_output,
+                                                                                  self.accuracy_pos,
+                                                                                  self.recall_pos,
+                                                                                  merged),
+                                                                                 feed_dict=feed_dict)
                 writer.add_summary(summary, i)
                 print('test accuracy: %f' % accuracy)
 
@@ -272,11 +295,11 @@ class BLSTM_WSD(object):
             self.bad_case(y_output, y_test, x_test_info)
 
             saver = tf.train.Saver()
-            self.save(sess, saver, path, 0)
+            self.save(sess, saver, model_path, 0)
         #writer.close()
 
     def save(self, sess, saver, path, step):
-        saver.save(sess, path + self.model_name + '/' + self.model_name + '.ckpt', step)
+        saver.save(sess, os.path.join(path, self.model_name + '.ckpt'), step)
 
     def load(self, sess, saver, path):
         ckpt = tf.train.get_checkpoint_state(path)
