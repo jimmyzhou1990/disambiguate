@@ -7,6 +7,8 @@ import re
 import copy
 import pandas as pd
 import os
+import time 
+import datetime
 
 class Disambiguate(object):
     def __init__(self, conf):
@@ -26,7 +28,7 @@ class Disambiguate(object):
 
         self.evaluate_corpus = conf['lstm']['evaluate_corpus']
         self.range = conf['lstm']['range']
-        self.lstm_model_path = conf['lstm']['model_path']+self.version
+        self.lstm_model_path = os.path.join(conf['lstm']['model_path'], self.version)
         self.company_list =[]
         for company in conf['company_list']:
             self.company_list.append(company['short_name'])
@@ -93,7 +95,12 @@ class Disambiguate(object):
             self.models[d] = mx
             self.models[d]['gate'] = domain_param[d]['gate']
             print("domain [%s] gate: %d"%(d, self.models[d]['gate']))
-        self.lstm_model = BLSTM_WSD(max_seq_length=self.range*2, word_keep_prob=0.8, w2vec=self.w2v_model, attention=self.attention)
+            self.models[d]['model']= BLSTM_WSD(max_seq_length=self.range*2,
+                                             word_keep_prob=0.8, 
+                                             w2vec=self.w2v_model, 
+                                             model_name=d,
+                                             attention=self.attention,
+                                             model_path=self.lstm_model_path)
 
     def run_models(self):
         p = 0
@@ -103,23 +110,23 @@ class Disambiguate(object):
         for d in self.all_domain:
             if self.method == 'single' and d != self.domain:
                 continue
-            lstm = self.lstm_model
+            lstm = self.models[d]['model']
+            
             x_eval = np.array(self.models[d]['feed']['x_eval'])
             y_eval = np.array(self.models[d]['feed']['y_eval'])
             x_info = self.models[d]['feed']['x_info']
             gate = self.models[d]['gate']
             if len(x_eval) == 0:
                 continue
-            path = self.lstm_model_path+'/'+d
-            print('load lstm model: %s'%path)
-            pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, path, d, gate)
+            #print('load lstm model: %s'%path)
+            pos, rpos, neg, rneg = lstm.evaluate(x_eval, y_eval, x_info, d, gate)
             p += pos    #正例
             rp += rpos  #正例正确召回
             n += neg    #负例
             rn += rneg  #负例正确召回
         total = p + n   #总case数
         rpn = rp + n - rn # 判定为正例的总数
-        print("positive: %d, negtive: %d, recall_pos: %.3f, precision_pos: %.3f, total_accuracy: %.3f"%(p, n, rp/(p+0.01), rp/(rpn+0.01), (rn+rp)/total))
+        #print("positive: %d, negtive: %d, recall_pos: %.3f, precision_pos: %.3f, total_accuracy: %.3f"%(p, n, rp/(p+0.01), rp/(rpn+0.01), (rn+rp)/total))
 
     def collect_xlsx(self):
         # /home/op/work/survey/log/lstm_eval_badcase_%s.xlsx
@@ -256,6 +263,85 @@ class Disambiguate(object):
             vec = np.concatenate((vec, v0))
         return vec
 
+    # [(short_name, title:xxxx), ()]
+    def load_from_list(self, batch_input, range,  w2vec, vocab_set):
+        x_eval = []
+        y_eval = []
+        x_info = []
+        for domain in self.all_domain:
+            self.models[domain]['feed']['x_eval'] = []
+            self.models[domain]['feed']['y_eval'] = []
+            self.models[domain]['feed']['x_info'] = []
+        for short_name, title, label in batch_input:
+            title = self.filter_sentence(title, short_name)
+            wordlist = [w for w in list(jieba.cut(title))]
+            try:
+                keyword_position = wordlist.index(short_name)
+            except:
+                print(title)
+                print("cannot find key word[%s] in word list: [%s]"%(short_name, wordlist))
+                continue
+
+            domain = self.get_domain(short_name)
+            # preceding
+            pre_veclist = []
+            pre_wordlist = []
+            for w in wordlist[keyword_position::-1]:
+                w = self.filter_word(w, vocab_set, short_name)
+                if w:
+                    pre_wordlist.insert(0, w)
+                    pre_veclist.insert(0, w2vec[w])
+                if len(pre_wordlist) >= range:
+                    break
+            if len(pre_wordlist) < range:  # padding 0
+                padding = [np.zeros(100)] * (range - len(pre_wordlist))
+                pre_veclist += padding
+
+            # succeeding
+            suc_veclist = []
+            suc_wordlist = []
+            for w in wordlist[keyword_position:]:
+                w = self.filter_word(w, vocab_set, short_name)
+                if w:
+                    suc_wordlist.insert(0, w)
+                    suc_veclist.insert(0, w2vec[w])
+                if len(suc_wordlist) >= range:
+                    break
+            if len(suc_wordlist) < range:  # padding 0
+                padding = [np.zeros(100)] * (range - len(suc_wordlist))
+                suc_veclist += padding
+
+            # concat
+            veclist = pre_veclist + suc_veclist
+            info = (short_name, "".join(wordlist), pre_wordlist , suc_wordlist)
+
+            x_eval.append(veclist)
+            y_eval.append([1, 0] if label == '1' else [0, 1])
+            x_info.append(info)
+
+            self.models[domain]['feed']['x_eval'].append(veclist)
+            self.models[domain]['feed']['y_eval'].append([1, 0] if label == '1' else [0, 1])
+            self.models[domain]['feed']['x_info'].append(info)
+
+        #print('evaluate corpus length: %d'%len(x_info))
+        # print('domian: %s, len %d'%(domain, len(self.models[domain]['feed']['x_eval'])))
+        return np.array(x_eval), np.array(y_eval), x_info
+
+    def generate_input_list(self, i):
+        path = os.path.join(self.evaluate_corpus, 'evaluate_online_0825_%d.txt'%i)
+        test_list = []
+        with open(path, 'r') as f:
+            for l in f:
+                items = l.strip().split('\t') 
+                if len(items) != 3:
+                    print(items)
+                    print("eval corpus bad line: short-name    text    label")
+                    continue
+                short_name, text, label = items
+                s = (short_name, text, label)
+                test_list.append(s)
+        return test_list
+
     def load_sentence_feature(self, range, seq_length, w2vec, vocab_set):
         x_eval = []
         y_eval = []
@@ -315,12 +401,12 @@ class Disambiguate(object):
                 x_eval.append(veclist)
                 y_eval.append([1, 0] if label == '1' else [0, 1])
                 x_info.append(info)
-
+                
                 self.models[domain]['feed']['x_eval'].append(veclist)
                 self.models[domain]['feed']['y_eval'].append([1, 0] if label == '1' else [0, 1])
                 self.models[domain]['feed']['x_info'].append(info)
 
-        print('evaluate corpus length: %d'%len(x_info))
+        #print('evaluate corpus length: %d'%len(x_info))
         return np.array(x_eval), np.array(y_eval), x_info
 
     def load_filter7_log(self, range, seq_length, w2vec, vocab_set):
@@ -357,14 +443,83 @@ class Disambiguate(object):
 
         return np.array(x_eval), np.array(y_eval), x_info
 
+    def evaluate_model_time(self):
+        s_t = 1000*time.time() 
+        self.load_models()
+        e_t = 1000*time.time() 
+        print("load models cost: %d ms"%(e_t-s_t))
+
+        summary_time = []
+        for i in range(1001)[1:-1:1]:
+            batch_list = self.generate_input_list(i)
+            s_t = 1000*time.time()
+            self.load_from_list(batch_list, self.range, self.w2v_model, self.vocab_set) 
+            self.run_models()
+            e_t = 1000*time.time() 
+            time_cost = e_t - s_t
+            cost_aver = time_cost/i
+            summary_time.append((str(i), str(time_cost), str(cost_aver)))
+            print("batch_num: %d, cost time: %dms, average cost: %.3f"%(i, time_cost, cost_aver))
+        with open(os.path.join(self.evaluate_corpus, 'summary_time.txt'), 'w+') as f:
+            for s in summary_time:
+                l = '\t'.join(s)+'\n'
+                f.write(l)
+
+    def evaluate_batch(self):
+        s_t = 1000*time.time() 
+        self.load_models()
+        e_t = 1000*time.time() 
+        print("load models cost: %d ms"%(e_t-s_t))
+        batch_num = [10, 40, 50, 100, 200, 400, 500, 1000, 2000, 3000, 4000,  5000, 6000, 7000, 8000, 9000,  10000]
+        path = os.path.join(self.evaluate_corpus, 'evaluate_online_0825_1w.txt')
+        with open(path, "r") as f:
+            test_list = []
+            for l in f:
+                items = l.strip().split('\t') 
+                if len(items) != 3:
+                    print(items)
+                    print("eval corpus bad line: short-name    text    label")
+                    continue
+                short_name, text, label = items
+                s = (short_name, text, label)
+                test_list.append(s)
+        print("test_list length: %s"%len(test_list))
+        batch_lists = [[test_list[i:i+b] for i in range(0, len(test_list), b)] for b in batch_num] 
+
+        times = []
+        for i in range(len(batch_num)):
+            li = batch_lists[i]
+            time_cost = 0
+            for lli in li:
+                s_t = 1000*time.time()
+                self.load_from_list(lli, self.range, self.w2v_model, self.vocab_set)
+                self.run_models()
+                e_t = 1000*time.time() 
+                time_cost += (e_t - s_t)
+            print("batch_num: %s, cost time: %.3f"%(batch_num[i], time_cost))
+            times.append((str(batch_num[i]), str(time_cost)))
+
+        with open(os.path.join(self.evaluate_corpus, 'summary_time_batch.txt'), 'w+') as f:
+            for s in times:
+                l = '\t'.join(s)+'\n'
+                f.write(l)
+
     def evaluate_lstm_model(self):
+
         self.load_models()
 
         x_eval, y_eval, x_info = self.load_sentence_feature(self.range, 2*self.range,
                                                              self.w2v_model, self.vocab_set)
-
+        
+        s_t = 1000*time.time()
         self.run_models()
+        e_t = 1000*time.time() 
+        print("cost time: %dms"%(e_t-s_t))
+
         self.collect_xlsx()
 
     def evaluate_models(self):
-        self.evaluate_lstm_model()
+        #self.evaluate_lstm_model()
+        #self.evaluate_model_time()
+        self.evaluate_batch()
+        

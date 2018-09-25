@@ -77,7 +77,8 @@ conf = {
         'version'       :  'v3',
         'range'         :  30,
         #'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate_online_0825.txt',
-        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+        #'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/evaluate.txt',
+        'evaluate_corpus'  :  '/home/op/work/survey/corpus/evaluate/time',
         'w2vec_version'    :  'v2',
         'domain'           :  'port',
         'method'           :  'mix',
@@ -162,8 +163,13 @@ elif sys.argv[1] == 'lstm':
         conf['lstm']['domain'] = sys.argv[3]
         range = conf['lstm']['range']
         batch_size = conf['lstm']['batch_size']
+        path = os.path.join(conf['lstm']['model_path'], conf['lstm']['version'])
         x_train, y_train, x_test, y_test, x_test_info, w2vec = get_lstm_dataset(conf)
-        lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, word_keep_prob=1.0, w2vec=w2vec, model_name=conf['lstm']['domain'], attention=conf['lstm']['attention'])
-        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15,
-                            os.path.join(conf['lstm']['model_path'], conf['lstm']['version'])
-                            )
+        lstm = BLSTM_WSD(max_seq_length=range * 2, batch_size=batch_size, 
+                         word_keep_prob=1.0,
+                         w2vec=w2vec,
+                         model_name=conf['lstm']['domain'],
+                         attention=conf['lstm']['attention'],
+                         model_path=path)
+        lstm.train_and_test(x_train, y_train, x_test, y_test, x_test_info, 15)
+                  

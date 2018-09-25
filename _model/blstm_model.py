@@ -7,63 +7,71 @@ import os
 
 class BLSTM_WSD(object):
 
-    def __init__(self, max_seq_length=30, embedding_size=100, batch_size=128,  hidden_units=50, word_keep_prob=1.0, w2vec=None, model_name='model', attention=False):
+    def __init__(self, max_seq_length=30, embedding_size=100, batch_size=128,  hidden_units=50,
+            word_keep_prob=1.0, w2vec=None, model_name='model', attention=False, model_path=None):
         self.range = int(max_seq_length/2)
         self.w2vec = w2vec
         self.drop_vec = w2vec['UnknownWord']
         self.word_keep_prob = word_keep_prob
         self.model_name = model_name
+        self.model_path = os.path.join(model_path, model_name)
         self.gate = 0.5
         self.batch_size = batch_size
         self.attention = attention
+        self.this_graph = tf.Graph()
+        self.test_sess = tf.Session(graph=self.this_graph)
+        with self.this_graph.as_default():
+            self.x_input = tf.placeholder(dtype=tf.float32,
+                                          shape=[None, max_seq_length, embedding_size],
+                                          name='x_input')
 
-        self.x_input = tf.placeholder(dtype=tf.float32,
-                                      shape=[None, max_seq_length, embedding_size],
-                                      name='x_input')
+            self.y_input = tf.placeholder(dtype=tf.float32,
+                                          shape=[None, 2],
+                                          name='y_input')
 
-        self.y_input = tf.placeholder(dtype=tf.float32,
-                                      shape=[None, 2],
-                                      name='y_input')
+            self.gate_input = tf.placeholder(dtype=tf.float32,
+                                       shape=[],
+                                       name='gate')
 
-        self.gate = tf.placeholder(dtype=tf.float32,
-                                   shape=[1],
-                                   name='gate')
+            # rnn layer
+            with tf.name_scope("slice"):
+                pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1], name='slice_for_preceding')
+                sec_x_input = tf.slice(self.x_input, begin=[0, self.range, 0], size=[-1, -1, -1], name='slice_for_secceding')
+            pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "pre_lstm", 'static')
+            sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "suc_lstm", 'static')
 
-        # rnn layer
-        with tf.name_scope("slice"):
-            pre_x_input = tf.slice(self.x_input, begin=[0, 0, 0], size=[-1, self.range, -1], name='slice_for_preceding')
-            sec_x_input = tf.slice(self.x_input, begin=[0, self.range, 0], size=[-1, -1, -1], name='slice_for_secceding')
-        pre_rnn_output = self.rnn_layer(pre_x_input, hidden_units, "pre_lstm", 'static')
-        sec_rnn_output = self.rnn_layer(sec_x_input, hidden_units, "suc_lstm", 'static')
+            # concat
+            with tf.name_scope("concat_rnn"):
+                rnn_concat = tf.concat([pre_rnn_output, sec_rnn_output], 1)
 
-        # concat
-        with tf.name_scope("concat_rnn"):
-            rnn_concat = tf.concat([pre_rnn_output, sec_rnn_output], 1)
+            # hidden layer
+            rnn_hidden_out = hidden_units*2
+            with tf.name_scope("hidden_layer"):
+                rnn_output = self.rnn_output_hidden_layer(rnn_concat, rnn_hidden_out)
 
-        # hidden layer
-        rnn_hidden_out = hidden_units*2
-        with tf.name_scope("hidden_layer"):
-            rnn_output = self.rnn_output_hidden_layer(rnn_concat, rnn_hidden_out)
+            # softmax
+            with tf.name_scope("soft_max"):
+                self.y_output = self.softmax_layer(rnn_output, rnn_hidden_out, 2)
 
-        # softmax
-        with tf.name_scope("soft_max"):
-            self.y_output = self.softmax_layer(rnn_output, rnn_hidden_out, 2)
+            # loss
+            with tf.name_scope("loss_fun"):
+                self.loss = self.loss_function(self.y_input, self.y_output)
 
-        # loss
-        with tf.name_scope("loss_fun"):
-            self.loss = self.loss_function(self.y_input, self.y_output)
+            # accuracy
+            with tf.name_scope("accuracy"):
+                self.accuracy = self.accuracy(self.y_output, self.y_input)
 
-        # accuracy
-        with tf.name_scope("accuracy"):
-            self.accuracy = self.accuracy(self.y_output, self.y_input)
+            # recall and accuracy of positive
+            with tf.name_scope("recall_accuracy"):
+                self.accuracy_pos, self.recall_pos = self.accuracy_recall_positive(self.y_output, self.y_input, self.gate_input)
 
-        # recall and accuracy of positive
-        with tf.name_scope("recall_accuracy"):
-            self.accuracy_pos, self.recall_pos = self.accuracy_recall_positive(self.y_output, self.y_input, self.gate)
+            #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
+            with tf.name_scope("Optimizer"):
+                self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
 
-        #self.train_op = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
-        with tf.name_scope("Optimizer"):
-            self.train_op = tf.train.AdamOptimizer(0.001).minimize(self.loss)
+            # 加载模型到test_sess
+            saver = tf.train.Saver()
+            self.load(self.test_sess, saver)
 
     def drop_word(self, x_input):
         def seq_length(seq):
@@ -249,23 +257,26 @@ class BLSTM_WSD(object):
             df_good = pd.DataFrame(goodcase)
             df_good.to_excel("/home/op/work/survey/log/lstm_eval_goodcase_%s.xlsx"%self.model_name, index=False, columns=columns)
 
-    def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch, path):
+    def train_and_test(self, x_train, y_train, x_test, y_test, x_test_info, epoch):
         train_sample_num = len(y_train)
         batch_size = self.batch_size
         batch_num = (int)(train_sample_num/batch_size)
 
         # 删除之前的summary
-        model_path = os.path.join(path, self.model_name)
         print('summary to [%s]' %model_path)
-        tf.gfile.DeleteRecursively(os.path.join(path, model_path))
+        tf.gfile.DeleteRecursively(os.path.join(path, self.model_path))
 
         with tf.Session() as sess:
             tf.global_variables_initializer().run()
-            writer = tf.summary.FileWriter(model_path, sess.graph)
-            tf.summary.scalar('test_accuracy', self.accuracy)
-            tf.summary.scalar('accuracy_pos', self.accuracy_pos)
-            tf.summary.scalar('recall_pos', self.recall_pos)
-            merged = tf.summary.merge_all()
+            writer_accuracy  = tf.summary.FileWriter(model_path, sess.graph)
+            writer_recall_pos = tf.summary.FileWriter(model_path)
+            writer_accuracy_pos  = tf.summary.FileWriter(model_path)
+            accuracy_smr = tf.summary.scalar('test_accuracy', self.accuracy)
+            accuracy_pos_smr = tf.summary.scalar('accuracy_pos', self.accuracy_pos)
+            recall_pos_smr = tf.summary.scalar('recall_pos', self.recall_pos)
+            accuracy_mg = tf.summary.merge([accuracy_smr])
+            accuracy_pos_mg = tf.summary.merge([accuracy_pos_smr])
+            recall_pos_mg = tf.summary.merge([recall_pos_smr])
             for i in range(epoch):
                 for j in range(batch_num):
                     x_input = x_train[j*batch_size : (j+1)*batch_size]
@@ -276,14 +287,16 @@ class BLSTM_WSD(object):
                     print('[epoch:%d] [batch_num:%d] loss=%9f accu=%.3f' % (i, j, loss, accuracy))
 
                 #test
-                feed_dict = {self.x_input: x_test, self.y_input: y_test, self.gate: 0.5}
-                accuracy, y_output, accuracy_pos, recall_pos, summary = sess.run((self.accuracy,
+                feed_dict = {self.x_input: x_test, self.y_input: y_test, self.gate_input: 0.5}
+                accuracy, y_output, accuracy_pos, recall_pos, s1, s2, s3 = sess.run((self.accuracy,
                                                                                   self.y_output,
                                                                                   self.accuracy_pos,
                                                                                   self.recall_pos,
-                                                                                  merged),
+                                                                                  accuracy_mg, accuracy_pos_mg, recall_pos_mg),
                                                                                  feed_dict=feed_dict)
-                writer.add_summary(summary, i)
+                writer_accuracy.add_summary(s1, i)
+                writer_recall_pos.add_summary(s2, i) 
+                writer_accuracy_pos.add_summary(s3, i)
                 print('test accuracy: %f' % accuracy)
 
                 #shuffle
@@ -295,14 +308,17 @@ class BLSTM_WSD(object):
             self.bad_case(y_output, y_test, x_test_info)
 
             saver = tf.train.Saver()
-            self.save(sess, saver, model_path, 0)
-        #writer.close()
+            self.save(sess, saver, 0)
+            writer_accuracy.close()
+            writer_recall_pos.close()
+            writer_accuracy_pos.close()
 
-    def save(self, sess, saver, path, step):
-        saver.save(sess, os.path.join(path, self.model_name + '.ckpt'), step)
+    def save(self, sess, saver, step):
+        saver.save(sess, os.path.join(self.model_path, self.model_name+'.ckpt'), step)
 
-    def load(self, sess, saver, path):
-        ckpt = tf.train.get_checkpoint_state(path)
+    def load(self, sess, saver):
+        print("load model from: %s"%self.model_path)
+        ckpt = tf.train.get_checkpoint_state(self.model_path)
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)
         else:
@@ -337,29 +353,26 @@ class BLSTM_WSD(object):
         return total, count_pos, count_recall, recall
 
 
-    def predict(self, sess, x_input, y_input, x_info):
+    def predict(self, x_input, y_input, x_info):
         feed_dict = {self.x_input: x_input, self.y_input: y_input}
         attn = None
         if self.attention:
-            y_output, accu, pre_attn, sec_atten = sess.run((self.y_output, self.accuracy, self.pre_attn, self.sec_attn),
+            y_output, accu, pre_attn, sec_atten = self.test_sess.run((self.y_output, self.accuracy, self.pre_attn, self.sec_attn),
                                                            feed_dict=feed_dict)
             attn = (pre_attn.tolist(), sec_atten.tolist())
         else:
-            y_output, accu = sess.run((self.y_output, self.accuracy), feed_dict=feed_dict)
+            y_output, accu = self.test_sess.run((self.y_output, self.accuracy), feed_dict=feed_dict)
 
         total, pos, rpos, recall_pos = self.count_pos(y_output, y_input)
         _, neg, rneg, recall_neg = self.count_neg(y_output, y_input)
 
-        self.bad_case(y_output, y_input, x_info, attn=attn,  to_excel=True, print_goodcase=False)
-        print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f" % (accu, recall_pos, recall_neg))
-        print("total case: %d, positive: %d, negtive: %d" % (total, pos, neg))
+        #self.bad_case(y_output, y_input, x_info, attn=attn,  to_excel=True, print_goodcase=False)
+        #print("accu:  %.3f,  recall_pos: %.3f,  recall_neg: %.3f" % (accu, recall_pos, recall_neg))
+        #print("total case: %d, positive: %d, negtive: %d" % (total, pos, neg))
         return pos, rpos, neg, rneg
 
-    def evaluate(self, x_input, y_input, x_info, model_path, model_name, gate):
+    def evaluate(self, x_input, y_input, x_info, model_name, gate):
         self.model_name = model_name
         self.gate = gate
-        saver = tf.train.Saver()
-        with tf.Session() as sess:
-            self.load(sess, saver, model_path)
-            pos, rpos, neg, rneg = self.predict(sess, x_input, y_input, x_info)
-            return pos, rpos, neg, rneg
+        pos, rpos, neg, rneg = self.predict(x_input, y_input, x_info)
+        return pos, rpos, neg, rneg
